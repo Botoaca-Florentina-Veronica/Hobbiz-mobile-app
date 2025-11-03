@@ -1,0 +1,62 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build directories
+dist/
+dist-ssr/
+*.local
+
+# Local environment variables
+.env
+secret.txt
+
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Build caches and tooling
+**/.vite/
+**/.cache/
+**/.turbo/
+**/.parcel-cache/
+**/.eslintcache
+
+# Test and coverage output
+**/coverage/
+**/.nyc_output/
+
+# Local environment files (for all packages)
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/.env.development
+**/.env.test
+**/.env.production
+
+# Uploads and generated media
+frontend/public/uploads/
+backend/uploads/
+**/uploads/
+
+# OS-specific
+Thumbs.db
+
+# Project-specific binaries
+backend/mitm-detector.exe
