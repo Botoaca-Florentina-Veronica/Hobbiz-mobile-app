@@ -156,7 +156,7 @@ export default function HomeScreen() {
         onSearchFocus={() => console.log('Search focused')}
         onNotificationClick={() => router.push('/notifications')}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+  <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.mainContent, { backgroundColor: tokens.colors.surface }]}>
           {
             (() => {
@@ -469,7 +469,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 100 },
+  // Remove extra bottom spacing so the page ends right after the categories section
+  scrollContent: { paddingBottom: 0 },
   mainContent: {
     padding: 16,
     marginBottom: 16,
@@ -511,7 +512,8 @@ const styles = StyleSheet.create({
   },
   categoriesSection: {
     padding: 16,
-    marginBottom: 16,
+    // No bottom margin: we want the page to end right after this section
+    marginBottom: 0,
   },
   categoriesTitle: {
     fontSize: 20,
