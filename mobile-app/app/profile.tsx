@@ -55,6 +55,8 @@ export default function ProfileScreen() {
   const pageAccent = tokens.colors.primary;
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // shared border style (unified color for both light and dark modes)
+  const containerBorderStyle = { borderWidth: isDark ? 1 : 0, borderColor: tokens.colors.borderNeutral } as const;
   const { user, restore } = useAuth();
   const { userId } = useLocalSearchParams<{ userId?: string }>();
   const [publicProfile, setPublicProfile] = React.useState<any | null>(null);
@@ -519,7 +521,7 @@ export default function ProfileScreen() {
     <>
       <StatusBar 
         barStyle="light-content" 
-        backgroundColor="rgba(0,0,0,0.3)" 
+        backgroundColor={tokens.colors.overlayLight}
         translucent={true}
       />
       <ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }]}>      
@@ -539,7 +541,7 @@ export default function ProfileScreen() {
               }
             }}
             activeOpacity={0.7}
-            style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}
+            style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.borderNeutral }]}
           >
             <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
           </TouchableOpacity>
@@ -555,7 +557,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Profile Header Card - Avatar + Rating + Name */}
-        <View style={[styles.profileHeaderCard, { backgroundColor: tokens.colors.surface }]}>
+  <View style={[styles.profileHeaderCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.avatarContainer}>
             {currentAvatar ? (
               <Image source={{ uri: currentAvatar }} style={styles.avatar} />
@@ -566,7 +568,7 @@ export default function ProfileScreen() {
             )}
 
             {isViewingOwnProfile && (
-              <TouchableOpacity style={[styles.cameraButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]} onPress={handlePickAvatar} activeOpacity={0.8}>
+              <TouchableOpacity style={[styles.cameraButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.borderNeutral }]} onPress={handlePickAvatar} activeOpacity={0.8}>
                 {avatarUploading ? (
                   <ActivityIndicator size="small" color={tokens.colors.primary} />
                 ) : (
@@ -599,11 +601,11 @@ export default function ProfileScreen() {
           <View style={styles.locationHeader}>
             <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>Locația mea</ThemedText>
             <TouchableOpacity onPress={() => { if (isViewingOwnProfile) setLocationModalOpen(true); }} activeOpacity={isViewingOwnProfile ? 0.7 : 1}>
-              <ThemedText style={[styles.specifyLink, { color: isViewingOwnProfile ? tokens.colors.muted : 'rgba(128,128,128,0.6)' }]}>Schimbă locația</ThemedText>
+              <ThemedText style={[styles.specifyLink, { color: isViewingOwnProfile ? tokens.colors.muted : tokens.colors.muted }]}>Schimbă locația</ThemedText>
             </TouchableOpacity>
           </View>
           
-          <View style={[styles.mapContainer, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
+          <View style={[styles.mapContainer, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.borderNeutral }]}>
             {profileToShow?.localitate ? (
               (() => {
                 const encoded = encodeURIComponent(profileToShow.localitate);
@@ -681,7 +683,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Contact Info Dashboard */}
-        <View style={[styles.dashboardCard, { backgroundColor: tokens.colors.surface }]}>
+  <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
             <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Informații de Contact</ThemedText>
             {isViewingOwnProfile && !isEditingContact && (
@@ -697,7 +699,7 @@ export default function ProfileScreen() {
 
           <View style={styles.infoGrid}>
             {/* Nume */}
-            <View style={[styles.infoItem, { borderColor: tokens.colors.border }]}>
+            <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="person-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
                 <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Nume</ThemedText>
@@ -705,7 +707,7 @@ export default function ProfileScreen() {
                   <TextInput
                     value={editLastName}
                     onChangeText={setEditLastName}
-                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.border }]}
+                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
                     placeholder="Introduceți numele"
                     placeholderTextColor={tokens.colors.placeholder}
                   />
@@ -718,7 +720,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Prenume */}
-            <View style={[styles.infoItem, { borderColor: tokens.colors.border }]}>
+            <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="person-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
                 <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Prenume</ThemedText>
@@ -726,7 +728,7 @@ export default function ProfileScreen() {
                   <TextInput
                     value={editFirstName}
                     onChangeText={setEditFirstName}
-                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.border }]}
+                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
                     placeholder="Introduceți prenumele"
                     placeholderTextColor={tokens.colors.placeholder}
                   />
@@ -739,7 +741,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Telefon */}
-            <View style={[styles.infoItem, { borderColor: tokens.colors.border }]}>
+            <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="call-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
                 <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Telefon</ThemedText>
@@ -747,7 +749,7 @@ export default function ProfileScreen() {
                   <TextInput
                     value={editPhone}
                     onChangeText={setEditPhone}
-                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.border }]}
+                    style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
                     placeholder="Introduceți telefonul"
                     placeholderTextColor={tokens.colors.placeholder}
                     keyboardType="phone-pad"
@@ -761,7 +763,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Email */}
-            <View style={[styles.infoItem, { borderColor: tokens.colors.border }]}>
+            <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="mail-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
                 <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Email</ThemedText>
@@ -777,7 +779,7 @@ export default function ProfileScreen() {
             <View style={styles.editActions}>
               <TouchableOpacity 
                 onPress={handleCancelEdit}
-                style={[styles.actionButton, styles.cancelButton, { borderColor: tokens.colors.border }]}
+                style={[styles.actionButton, styles.cancelButton, { borderColor: tokens.colors.borderNeutral }]}
                 activeOpacity={0.8}
               >
                 <ThemedText style={[styles.actionButtonText, { color: tokens.colors.text }]}>Anulează</ThemedText>
@@ -800,7 +802,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Reviews Dashboard */}
-        <View style={[styles.dashboardCard, { backgroundColor: tokens.colors.surface }]}>
+  <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
             <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Rezultatul evaluării</ThemedText>
           </View>
@@ -823,7 +825,7 @@ export default function ProfileScreen() {
                         key={star}
                         name={star <= Math.round(reviewStats.averageRating) ? 'star' : 'star-outline'}
                         size={16}
-                        color={isDark ? '#F51866' : '#FFC107'}
+                        color={tokens.colors.rating}
                       />
                     ))}
                   </View>
@@ -845,13 +847,13 @@ export default function ProfileScreen() {
                         <Text style={[styles.ratingLabel, { color: tokens.colors.text }]}>
                           {rating} ★
                         </Text>
-                        <View style={[styles.barBackground, { backgroundColor: tokens.colors.border }]}>
+                        <View style={[styles.barBackground, { backgroundColor: tokens.colors.borderNeutral }]}>
                           <View 
                             style={[
                               styles.barFill, 
                               { 
                                 width: `${percentage}%`,
-                                backgroundColor: rating === 5 ? (isDark ? '#F51866' : '#FFC107') : tokens.colors.border 
+                                backgroundColor: rating === 5 ? tokens.colors.rating : tokens.colors.borderNeutral 
                               }
                             ]} 
                           />
@@ -873,7 +875,7 @@ export default function ProfileScreen() {
                     const formattedDate = `${reviewDate.getDate().toString().padStart(2, '0')}.${(reviewDate.getMonth() + 1).toString().padStart(2, '0')}.${reviewDate.getFullYear()}`;
                     
                     return (
-                      <View key={review._id} style={[styles.reviewCard, { borderColor: tokens.colors.border }]}>
+                      <View key={review._id} style={[styles.reviewCard, { borderColor: tokens.colors.borderNeutral }]}> 
                         <View style={styles.reviewHeader}>
                           <View style={styles.reviewerInfo}>
                             {review.reviewerAvatar ? (
@@ -895,7 +897,7 @@ export default function ProfileScreen() {
                               </Text>
                             </View>
                           </View>
-                          <View style={[styles.reviewRatingBadge, isDark ? styles.reviewRatingBadgeDark : undefined]}>
+                          <View style={[styles.reviewRatingBadge, { backgroundColor: tokens.colors.rating }]}>
                             <Text style={[styles.reviewRatingText, { color: tokens.colors.text }]}>
                               {review.rating.toFixed(1)}
                             </Text>
@@ -907,7 +909,7 @@ export default function ProfileScreen() {
                         </Text>
                         
                         {/* Like/Unlike buttons */}
-                        <View style={styles.reviewFooter}>
+                        <View style={[styles.reviewFooter, { borderTopColor: tokens.colors.borderNeutral }]}>
                           <View style={styles.reviewActions}>
                             {/* Like button */}
                             <TouchableOpacity
@@ -920,7 +922,7 @@ export default function ProfileScreen() {
                                 size={18} 
                                 color={
                                   reviewLikeState[review._id]?.liked 
-                                    ? '#2196F3' 
+                                    ? tokens.colors.success 
                                     : tokens.colors.muted
                                 }
                               />
@@ -928,7 +930,7 @@ export default function ProfileScreen() {
                                 styles.actionCount, 
                                 { 
                                   color: reviewLikeState[review._id]?.liked 
-                                    ? '#2196F3' 
+                                    ? tokens.colors.success 
                                     : tokens.colors.muted 
                                 }
                               ]}>
@@ -947,7 +949,7 @@ export default function ProfileScreen() {
                                 size={18} 
                                 color={
                                   reviewLikeState[review._id]?.unliked 
-                                    ? '#F44336' 
+                                    ? tokens.colors.danger 
                                     : tokens.colors.muted
                                 }
                               />
@@ -955,7 +957,7 @@ export default function ProfileScreen() {
                                 styles.actionCount, 
                                 { 
                                   color: reviewLikeState[review._id]?.unliked 
-                                    ? '#F44336' 
+                                    ? tokens.colors.danger 
                                     : tokens.colors.muted 
                                 }
                               ]}>
@@ -996,7 +998,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Announcements Dashboard */}
-        <View style={[styles.dashboardCard, { backgroundColor: tokens.colors.surface }]}>
+  <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
             <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Anunțurile Mele</ThemedText>
             <TouchableOpacity onPress={() => router.push('/my-announcements')}>
@@ -1011,14 +1013,14 @@ export default function ProfileScreen() {
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: tokens.colors.muted }]}>Active</ThemedText>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: tokens.colors.border }]} />
+            <View style={[styles.statDivider, { backgroundColor: tokens.colors.borderNeutral }]} />
             <View style={styles.statItem}>
               <ThemedText style={[styles.statValue, { color: tokens.colors.text }]}>
                 {userAnnouncements.length}
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: tokens.colors.muted }]}>Total</ThemedText>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: tokens.colors.border }]} />
+            <View style={[styles.statDivider, { backgroundColor: tokens.colors.borderNeutral }]} />
             <View style={styles.statItem}>
               <ThemedText style={[styles.statValue, { color: tokens.colors.text }]}>
                 {userAnnouncements.reduce((sum, a) => sum + (a.views || 0), 0)}
@@ -1050,7 +1052,7 @@ export default function ProfileScreen() {
                 const imageUri = item.images?.[0] ? getImageSrc(item.images[0]) : null;
                 return (
                   <TouchableOpacity
-                    style={[styles.announcementCard, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border }]}
+                    style={[styles.announcementCard, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.borderNeutral }]}
                     onPress={() => router.push(`/announcement-details?id=${item._id}`)}
                     activeOpacity={0.7}
                   >
@@ -1058,7 +1060,7 @@ export default function ProfileScreen() {
                       source={{
                         uri: imageUri || 'https://via.placeholder.com/150x150?text=No+Image'
                       }}
-                      style={styles.announcementImage}
+                      style={[styles.announcementImage, { backgroundColor: tokens.colors.placeholderBg }]}
                     />
                     <View style={styles.announcementInfo}>
                       <Text 
@@ -1086,9 +1088,9 @@ export default function ProfileScreen() {
     
     {/* Custom Toast Notification */}
     {locationModalOpen && (
-      <View style={[styles.categoryOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)' }]}>
-        <View style={[styles.categorySheet, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
-          <View style={[styles.categoryHeader, { borderColor: tokens.colors.border }]}>
+  <View style={[styles.categoryOverlay, { backgroundColor: isDark ? tokens.colors.overlayDark : tokens.colors.overlayLight }]}>
+  <View style={[styles.categorySheet, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
+          <View style={[styles.categoryHeader, { borderColor: tokens.colors.borderNeutral }]}>
             {countyExpanded ? (
               <>
                 <TouchableOpacity onPress={() => setCountyExpanded(null)} style={[styles.closeBtn, { marginRight: 8 }]}> 
@@ -1120,7 +1122,7 @@ export default function ProfileScreen() {
                     key={`${countyExpanded}-${loc}-${idx}`}
                     onPress={() => { handleSelectLocation(loc, countyExpanded); }}
                     activeOpacity={0.65}
-                    style={[styles.categoryRow, { borderColor: tokens.colors.border }]}
+                    style={[styles.categoryRow, { borderColor: tokens.colors.borderNeutral }]}
                   >
                     <ThemedText style={[styles.categoryLabel, { color: tokens.colors.text }]}>{loc}</ThemedText>
                   </TouchableOpacity>
@@ -1138,7 +1140,7 @@ export default function ProfileScreen() {
                     }
                   }}
                   activeOpacity={0.65}
-                  style={[styles.categoryRow, { borderColor: tokens.colors.border }]}
+                  style={[styles.categoryRow, { borderColor: tokens.colors.borderNeutral }]}
                 >
                   <ThemedText style={[styles.categoryLabel, { color: tokens.colors.text }]}>{loc}</ThemedText>
                 </TouchableOpacity>
@@ -1493,7 +1495,7 @@ const styles = StyleSheet.create({
   announcementImage: {
     width: '100%',
     height: 120,
-    backgroundColor: '#eee',
+    // backgroundColor now provided dynamically via tokens.colors.placeholderBg
   },
   announcementInfo: {
     padding: 10,
@@ -1627,10 +1629,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#FFC107',
+    // backgroundColor provided dynamically via tokens.colors.rating
   },
   reviewRatingBadgeDark: {
-    backgroundColor: '#F51866',
+    // deprecated: replaced by semantic tokens.colors.rating
   },
   reviewRatingText: {
     fontSize: 12,
@@ -1647,7 +1649,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    // borderTopColor can be injected dynamically if needed
   },
   reviewActions: {
     flexDirection: 'row',
