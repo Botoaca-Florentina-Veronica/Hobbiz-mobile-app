@@ -7,7 +7,7 @@ import { useAppTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
-
+ 
 interface Announcement {
   _id: string;
   title: string;
@@ -17,7 +17,7 @@ interface Announcement {
   createdAt: string;
   user?: { _id: string; firstName?: string; lastName?: string };
 }
-
+ 
 export default function FavoritesScreen() {
   const { tokens, isDark } = useAppTheme();
   // Dark-mode palette (from attachment): use only these surface tints + pink primary and white for contrast
@@ -41,11 +41,11 @@ export default function FavoritesScreen() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
+ 
   const [favorites, setFavorites] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
+ 
   const fetchFavorites = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
@@ -62,17 +62,17 @@ export default function FavoritesScreen() {
       setLoading(false);
     }
   }, [isAuthenticated]);
-
+ 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchFavorites();
     setRefreshing(false);
   }, [fetchFavorites]);
-
+ 
   useEffect(() => {
     fetchFavorites();
   }, [fetchFavorites]);
-
+ 
   const handleRemoveFavorite = async (id: string) => {
     try {
       await api.delete(`/api/favorites/${id}`);
@@ -81,7 +81,7 @@ export default function FavoritesScreen() {
       console.error('Error removing favorite:', e);
     }
   };
-
+ 
   const getImageSrc = (img?: string) => {
     if (!img) return null;
     if (img.startsWith('http')) return img;
@@ -91,7 +91,7 @@ export default function FavoritesScreen() {
     if (img.startsWith('uploads/')) return `${base}/${img}`;
     return `${base}/uploads/${img.replace(/^.*[\\\/]/, '')}`;
   };
-
+ 
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.bg, paddingTop: insets.top }]}> 
@@ -100,7 +100,7 @@ export default function FavoritesScreen() {
       </View>
     );
   }
-
+ 
   if (!isAuthenticated) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
@@ -116,7 +116,7 @@ export default function FavoritesScreen() {
       </View>
     );
   }
-
+ 
   return (
     <View style={[styles.container, { backgroundColor: tokens.colors.bg }]}>
       {/* Header */}
@@ -128,12 +128,12 @@ export default function FavoritesScreen() {
           <Text style={[styles.headerTitle, { color: colors.text }]}>Favorite</Text>
         </View>
       </View>
-
+ 
       {/* Subtitle */}
       <View style={styles.subtitleContainer}>
         <Text style={[styles.subtitle, { color: colors.text }]}>Anunțuri favorite ({favorites.length}/150)</Text>
       </View>
-
+ 
       {/* List */}
       <ScrollView
         style={styles.scrollView}
@@ -160,12 +160,12 @@ export default function FavoritesScreen() {
             ];
             const palette = palettes[index % palettes.length];
             // For dark mode: all cards identical (same bg + pink gradient accent)
-            const cardBg = isDark ? colors.surface : palette.bg;
+            const cardBg = isDark ? '#121212' : palette.bg;
             const gradientColors: [string, string] = isDark 
               ? [colors.primary as string, (colors as any).pink4 as string]  // pink gradient (#f51866 → #ff7e95)
               : [palette.g1, palette.g2];
             const textColor = isDark ? colors.text : palette.text;
-
+ 
             return (
               <Pressable
                 key={ann._id}
@@ -176,16 +176,20 @@ export default function FavoritesScreen() {
                   {
                     backgroundColor: cardBg,
                     opacity: pressed ? 0.92 : 1,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: isDark ? 'rgb(139, 139, 139)' : 'transparent',
                   },
                 ]}
               >
-                <LinearGradient
-                  colors={gradientColors}
-                  style={styles.leftAccent}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                />
-                <View style={styles.squareImageWrapper}>
+                {!isDark && (
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={styles.leftAccent}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  />
+                )}
+                <View style={[styles.squareImageWrapper, { marginLeft: isDark ? 0 : 22 }]}>
                   {firstImage ? (
                     <Image source={{ uri: firstImage }} style={styles.squareImage} resizeMode="cover" />
                   ) : (
@@ -221,7 +225,7 @@ export default function FavoritesScreen() {
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
