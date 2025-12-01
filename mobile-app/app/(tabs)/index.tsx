@@ -11,7 +11,7 @@ import LegalFooter from '@/components/LegalFooter';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { FlatList, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import storage from '../../src/services/storage';

@@ -11,13 +11,9 @@ import {
   FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/themed-view';
-import { useAppTheme } from '../src/context/ThemeContext';
-import api from '../src/services/api';
-import { useFocusEffect } from '@react-navigation/native';
 
 export default function CategoryAnnouncementsScreen() {
   const { tokens } = useAppTheme();
@@ -25,7 +21,6 @@ export default function CategoryAnnouncementsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const category = params.category as string;
-  const navigation = useNavigation();
 
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,14 +37,7 @@ export default function CategoryAnnouncementsScreen() {
   );
 
   // Hide the native header added by the stack navigator (prevents duplicate header)
-  useEffect(() => {
-    try {
-      // @ts-ignore
-      navigation.setOptions?.({ headerShown: false });
-    } catch (e) {
-      // ignore if navigation not available
-    }
-  }, [navigation]);
+  // (Nota: cu expo-router, nu mai trebuie apelat navigation.setOptions)
 
   const fetchAnnouncements = async () => {
     setLoading(true);

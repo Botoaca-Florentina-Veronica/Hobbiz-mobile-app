@@ -24,10 +24,9 @@ import {
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { PermissionsAndroid } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BackHandler } from 'react-native';
 import { useTabBar } from '../../src/context/TabBarContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -90,7 +89,6 @@ export default function ChatScreen() {
   const { tokens, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const navigation = useNavigation();
   const { hideTabBar, showTabBar } = useTabBar();
   const { refreshUnreadCount, decrementUnreadCount, setUnreadCount } = useChatNotifications();
   const [conversations, setConversations] = useState<Conversation[]>([]);

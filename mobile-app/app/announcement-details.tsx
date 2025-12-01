@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Platform, Modal, Share, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '../src/context/ThemeContext';
@@ -31,7 +30,6 @@ export default function AnnouncementDetailsScreen() {
   const { tokens, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const navigation = useNavigation();
 
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,14 +95,7 @@ export default function AnnouncementDetailsScreen() {
   }, [fetchAnnouncement]);
 
   // Ascund header-ul implicit al navigatorului (evit bara neagră de sus)
-  useEffect(() => {
-    try {
-      // @ts-ignore
-      navigation.setOptions?.({ headerShown: false });
-    } catch (e) {
-      // nu blochează execuția dacă nu e disponibil
-    }
-  }, [navigation]);
+  // (Nota: cu expo-router, nu mai trebuie apelat navigation.setOptions)
 
   // Nu mai avem nevoie de geocodare sau MapView nativ — folosim iframe Google Maps pe toate platformele (funcționează în Expo Go)
 
