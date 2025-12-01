@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import * as Notifications from 'expo-notifications';
 import { Platform, Dimensions } from 'react-native';
 import { StyleSheet, ScrollView, View, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +14,35 @@ import api from '../../src/services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { FlatList, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import storage from '../../src/services/storage';
+ 
+const TRANSLATIONS = {
+  ro: {
+    mainTitle: 'Ai vreun hobby fain și crezi că e inutil? Găsește oameni care sunt dispuși să plătească pentru el!',
+    ctaText: 'Fă din pasiunea ta o sursă de venit!',
+    popularTitle: 'Anunțuri populare',
+    seeAll: 'Vezi tot',
+    loading: 'Se încarcă...',
+    showAllAnnouncements: 'Afișați toate anunțurile',
+    announcement: 'Anunț',
+    seeDetails: 'Vezi detalii  ›',
+    exploreCategories: 'Explorează categorii',
+    categories: ['Fotografie','Prajituri','Muzica','Reparații','Dans','Curățenie','Gradinarit','Sport','Arta','Tehnologie','Auto','Meditații'],
+  },
+  en: {
+    mainTitle: 'Got a cool hobby and think it is useless? Find people willing to pay for it!',
+    ctaText: 'Turn your passion into a source of income!',
+    popularTitle: 'Popular Announcements',
+    seeAll: 'See all',
+    loading: 'Loading...',
+    showAllAnnouncements: 'Show all announcements',
+    announcement: 'Announcement',
+    seeDetails: 'See details  ›',
+    exploreCategories: 'Explore Categories',
+    categories: ['Photography','Cakes','Music','Repairs','Dance','Cleaning','Gardening','Sport','Art','Technology','Auto','Tutoring'],
+  },
+};
+ 
 const categories = [
   { description: 'Fotografie', color: '#FF6B6B', image: require('../../assets/images/camera.png') },
   { description: 'Prajituri', color: '#4ECDC4', image: require('../../assets/images/bake.png') },
@@ -30,30 +57,30 @@ const categories = [
   { description: 'Auto', color: '#F8C471', image: require('../../assets/images/car.png') },
   { description: 'Meditații', color: '#82E0AA', image: require('../../assets/images/carte.png') },
 ];
-
+ 
 // Design colors
 const DESIGN_BLUE = '#034e84ff';
 // deep blue for announcement titles (matches mock)
 const TITLE_BLUE = '#1a3b7eff';
-
+ 
 // ==================== CONFIGURARE DIMENSIUNI IMAGINII HERO ====================
 // Editează aceste valori pentru a schimba rapid dimensiunea imaginii principale
 const HERO_IMAGE_CONFIG = {
   // Aspect ratio (lățime / înălțime) al imaginii
   aspectRatio: 1.5,
-  
+ 
   // Înălțime minimă (px) - pentru telefoane mici
   minHeight: 260,
-  
+ 
   // Înălțime maximă (px) - pentru dispozitive foarte mari
   maxHeight: 600,
-  
+ 
   // Procent din înălțimea ecranului (0.34 = 34%)
   screenHeightPercent: 0.34,
-  
+ 
   // Border radius (colțuri rotunjite)
   borderRadius: 16,
-  
+ 
   // Padding orizontal (spațiu la margini)
   horizontalPadding: 32,
   // Suprascrieri specifice telefoanelor (opțional)
@@ -65,9 +92,11 @@ const HERO_IMAGE_CONFIG = {
   },
 };
 // ============================================================================
-
+ 
 export default function HomeScreen() {
   const { tokens, isDark } = useAppTheme();
+  // shared border style for inner container-like cards (used in popular cards)
+  const containerBorderStyle = { borderWidth: isDark ? 1 : 0, borderColor: tokens.colors.borderNeutral } as const;
   const { columnsForCategories, width: screenWidth, isPhone, isTablet, isLargeTablet, scale } = useResponsive();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -75,7 +104,11 @@ export default function HomeScreen() {
   const [notifCount, setNotifCount] = useState(0);
   const [popular, setPopular] = useState<any[]>([]);
   const [popularLoading, setPopularLoading] = useState(false);
-
+  // Locale management: if a LocaleContext is available use it, otherwise default to Romanian ('ro').
+  // We default to 'ro' here to avoid a hard dependency on a missing context during development.
+  const locale: string = 'ro';
+  const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
+ 
   // helper: convert hex #RRGGBB to rgba(r,g,b,a)
   const hexToRgba = useCallback((hex: string, alpha: number) => {
     try {
@@ -83,32 +116,68 @@ export default function HomeScreen() {
       const r = parseInt(h.substring(0, 2), 16);
       const g = parseInt(h.substring(2, 4), 16);
       const b = parseInt(h.substring(4, 6), 16);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      return rgba(${r}, ${g}, ${b}, ${alpha});
     } catch {
       return hex; // fallback
     }
   }, []);
-
-  // Configure notifications behavior and Android channel once
-  useEffect(() => {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: false, shouldSetBadge: false })
-    });
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('default', {
-        name: 'General',
-        importance: Notifications.AndroidImportance.DEFAULT,
-      }).catch(() => {});
-    }
-  }, []);
-
+ 
+  // Checkered background grid component for dark mode
+  const CheckeredBackground = () => {
+    if (!isDark) return null;
+ 
+    return (
+      <View 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0,
+        }}
+        pointerEvents="none"
+      >
+        {/* Create grid pattern using semi-transparent lines */}
+        {Array.from({ length: 50 }).map((_, i) => (
+          <View
+            key={h-${i}}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: i * 32,
+              height: 1,
+              backgroundColor: 'rgba(79, 79, 79, 0.18)',
+            }}
+          />
+        ))}
+        {Array.from({ length: 50 }).map((_, i) => (
+          <View
+            key={v-${i}}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: i * 32,
+              width: 1,
+              backgroundColor: 'rgba(79, 79, 79, 0.18)',
+            }}
+          />
+        ))}
+      </View>
+    );
+  };
+ 
+ 
+ 
   const loadCount = useCallback(async () => {
     try {
       if (!isAuthenticated || !user?.id) { 
         setNotifCount(0); 
         return; 
       }
-      const res = await api.get(`/api/notifications/${user.id}`);
+      const res = await api.get(/api/notifications/${user.id});
       const list = Array.isArray(res.data) ? res.data : [];
       // Considerăm ne-citit orice element cu read === false
       const unread = list.filter((n: any) => n && n.read === false).length;
@@ -121,14 +190,14 @@ export default function HomeScreen() {
       setNotifCount(0);
     }
   }, [isAuthenticated, user?.id]);
-
+ 
   useFocusEffect(
     useCallback(() => {
       loadCount();
       loadPopular();
     }, [loadCount])
   );
-
+ 
   const loadPopular = useCallback(async () => {
     setPopularLoading(true);
     try {
@@ -148,16 +217,17 @@ export default function HomeScreen() {
       setPopularLoading(false);
     }
   }, []);
-
+ 
   return (
-  <ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }]}> 
+  <ThemedView style={[styles.container, { backgroundColor: isDark ? '#0b0b0b' : tokens.colors.bg, paddingTop: insets.top }]}> 
+      <CheckeredBackground />
       <MobileHeader 
         notificationCount={notifCount}
         onSearchFocus={() => console.log('Search focused')}
         onNotificationClick={() => router.push('/notifications')}
       />
   <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.mainContent, { backgroundColor: tokens.colors.surface }]}>
+  <View style={[styles.mainContent, { backgroundColor: isDark ? 'transparent' : tokens.colors.surface, zIndex: 1 }]}> 
           {
             (() => {
               // Determină dimensiunea titlului în mod responsive
@@ -165,7 +235,7 @@ export default function HomeScreen() {
               const titleSize = isPhone ? Math.round(scale(20)) : isTablet ? Math.round(scale(30)) : isLargeTablet ? Math.round(scale(40)) : Math.round(scale(24));
               return (
                 <ThemedText style={[styles.mainText, { color: tokens.colors.text, fontSize: titleSize, fontWeight: '800', lineHeight: Math.round(titleSize * 1.05) }]}> 
-                  Ai vreun hobby fain și crezi că e inutil? Găsește oameni care sunt dispuși să plătească pentru el!
+                  {t.mainTitle}
                 </ThemedText>
               );
             })()
@@ -174,30 +244,30 @@ export default function HomeScreen() {
             // Calculăm dimensiunile imaginii hero folosind configurația de mai sus
             const window = Dimensions.get('window');
             const screenH = window.height || 800;
-
+ 
             // Aplicăm suprascrierile pentru telefoane dacă sunt definite
             const cfg = isPhone && HERO_IMAGE_CONFIG.phoneOverrides && Object.keys(HERO_IMAGE_CONFIG.phoneOverrides).length
               ? { ...HERO_IMAGE_CONFIG, ...HERO_IMAGE_CONFIG.phoneOverrides }
               : HERO_IMAGE_CONFIG;
-
+ 
             const availableWidth = Math.max(320, (screenWidth || 360) - cfg.horizontalPadding);
-
+ 
             // Calculăm înălțimea pe baza lățimii și aspect ratio
             const heightFromWidth = Math.round(availableWidth / cfg.aspectRatio);
             // Calculăm înălțimea pe baza procentului din înălțimea ecranului
             const heightFromScreen = Math.round(screenH * cfg.screenHeightPercent);
-
+ 
             // Alegem înălțimea mai mare dintre cele două, apoi aplicăm limitele min/max
             let calculatedHeight = Math.max(heightFromWidth, heightFromScreen);
             calculatedHeight = Math.max(
               cfg.minHeight,
               Math.min(calculatedHeight, cfg.maxHeight)
             );
-
+ 
             // Calculăm lățimea finală păstrând aspect ratio-ul
             let imageWidth = Math.min(availableWidth, Math.round(calculatedHeight * cfg.aspectRatio));
             const imageHeight = Math.round(imageWidth / cfg.aspectRatio);
-
+ 
             return (
               <View style={[styles.mainHeroWrap, { height: imageHeight + 20, marginBottom: -16 }]}>
                 <View style={{ 
@@ -231,23 +301,23 @@ export default function HomeScreen() {
               const ctaSize = isPhone ? Math.round(scale(18)) : isTablet ? Math.round(scale(30)) : isLargeTablet ? Math.round(scale(40)) : Math.round(scale(22));
               return (
                 <ThemedText style={[styles.ctaText, { color: tokens.colors.text, fontSize: ctaSize, fontWeight: '800', lineHeight: Math.round(ctaSize * 1.05) }]}> 
-                  Fă din pasiunea ta o sursă de venit!
+                  {t.ctaText}
                 </ThemedText>
               );
             })()}
           </View>
         </View>
-
-        {/* Popular announcements */}
-        <View style={[styles.popularSection, { backgroundColor: tokens.colors.surface }]}>
+ 
+  {/* Popular announcements */}
+  <View style={[styles.popularSection, { backgroundColor: isDark ? 'transparent' : tokens.colors.surface, zIndex: 1 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <ThemedText style={[styles.popularTitle, { color: tokens.colors.text }]}>Anunțuri populare</ThemedText>
+            <ThemedText style={[styles.popularTitle, { color: tokens.colors.text }]}>{t.popularTitle}</ThemedText>
             <TouchableOpacity onPress={() => router.push('/announcement-details?sort=popular') }>
-              <Text style={{ color: tokens.colors.primary }}>Vezi tot</Text>
+              <Text style={{ color: tokens.colors.primary }}>{t.seeAll}</Text>
             </TouchableOpacity>
           </View>
           {popularLoading ? (
-            <Text style={{ color: tokens.colors.muted }}>Se încarcă...</Text>
+            <Text style={{ color: tokens.colors.muted }}>{t.loading}</Text>
           ) : (
             (() => {
               const cols = screenWidth && screenWidth < 360 ? 1 : 2;
@@ -260,12 +330,12 @@ export default function HomeScreen() {
                   const rem = arr.length % cols;
                   if (rem !== 0) {
                     const needed = cols - rem;
-                    for (let i = 0; i < needed; i++) arr.push({ _id: `placeholder-show-all-${i}`, placeholder: true });
+                    for (let i = 0; i < needed; i++) arr.push({ _id: placeholder-show-all-${i}, placeholder: true });
                   }
                 }
                 return arr;
               })();
-
+ 
               return (
                 <FlatList
                   data={listData}
@@ -282,14 +352,14 @@ export default function HomeScreen() {
                     const subtleBorder = (() => {
                       try { return hexToRgba(tokens.colors.border || '#000000', 0.5); } catch { return tokens.colors.border; }
                     })();
-
+ 
                     const computedImageHeight = Math.max(120, Math.round(cardWidth * 0.55));
-
+ 
                     const itemStyle = [
                       styles.popularCard,
                       {
-                        backgroundColor: tokens.colors.surface,
-                        borderColor: subtleBorder,
+                        // Use dark-mode container token for inner cards; the outer popularSection remains unmodified (no border)
+                        backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface,
                         width: cardWidth,
                         marginRight: isLastInRow ? 0 : gap,
                         marginBottom: 12,
@@ -298,6 +368,7 @@ export default function HomeScreen() {
                         shadowOpacity: 0.04,
                         shadowRadius: 6,
                         elevation: 2,
+                        ...containerBorderStyle,
                       },
                     ];
                     // render placeholder card (fills empty slot) with a single informative text
@@ -305,14 +376,14 @@ export default function HomeScreen() {
                       return (
                         <View style={itemStyle}>
                           <View style={styles.placeholderBox}>
-                            <Text style={[styles.placeholderText, { color: tokens.colors.primary }]}>Afișați toate anunțurile</Text>
+                            <Text style={[styles.placeholderText, { color: tokens.colors.primary }]}>{t.showAllAnnouncements}</Text>
                           </View>
                         </View>
                       );
                     }
-
+ 
                     return (
-                      <TouchableOpacity activeOpacity={0.9} style={itemStyle} onPress={() => router.push(`/announcement-details?id=${item._id}`)}>
+                      <TouchableOpacity activeOpacity={0.9} style={itemStyle} onPress={() => router.push(/announcement-details?id=${item._id})}>
                         <View style={[styles.popularImageWrap, { height: computedImageHeight }]}> 
                           <Image
                             source={{ uri: item.images && item.images[0] ? item.images[0] : undefined }}
@@ -320,11 +391,11 @@ export default function HomeScreen() {
                           />
                           {/* star button removed per request */}
                         </View>
-
+ 
                         <Text numberOfLines={2} style={[styles.popularLabel, { color: isDark ? '#c81553ff' : TITLE_BLUE }]}> 
-                          {item.title || item.description || 'Anunț'}
+                          {item.title || item.description || t.announcement}
                         </Text>
-
+ 
                         <View style={styles.popularMetaRow}>
                           {item.location ? (
                             <View
@@ -355,17 +426,17 @@ export default function HomeScreen() {
                             </Text>
                           </View>
                         </View>
-
+ 
                         {/* details button at bottom of card */}
                         <TouchableOpacity
                           activeOpacity={0.85}
-                          onPress={() => router.push(`/announcement-details?id=${item._id}`)}
+                          onPress={() => router.push(/announcement-details?id=${item._id})}
                           style={[
                             styles.detailsButton,
                             { backgroundColor: isDark ? '#f51866' : DESIGN_BLUE },
                           ]}
                         >
-                          <Text style={[styles.detailsButtonText]}>Vezi detalii  ›</Text>
+                          <Text style={[styles.detailsButtonText]}>{t.seeDetails}</Text>
                         </TouchableOpacity>
                       </TouchableOpacity>
                     );
@@ -375,10 +446,10 @@ export default function HomeScreen() {
             })()
           )}
         </View>
-
-        <View style={[styles.categoriesSection, { backgroundColor: tokens.colors.surface }]}>
+ 
+  <View style={[styles.categoriesSection, { backgroundColor: isDark ? 'transparent' : tokens.colors.surface, zIndex: 1 }]}>
           <ThemedText style={[styles.categoriesTitle, { color: tokens.colors.text }]}>
-            Explorează categorii
+            {t.exploreCategories}
           </ThemedText>
           {(() => {
             const minCardWidth = 140;
@@ -388,11 +459,11 @@ export default function HomeScreen() {
             const tentative = Math.floor((avail + gap) / (minCardWidth + gap));
             const maxPossibleCols = Math.max(1, Math.min(tentative, 6));
             const minCols = (screenWidth || 0) >= 400 ? 3 : 1;
-
+ 
             // Build candidate cols range between minCols and maxPossibleCols
             const candidates: number[] = [];
             for (let c = minCols; c <= maxPossibleCols; c++) candidates.push(c);
-
+ 
             // Prefer the largest candidate that divides the total number of categories
             let cols = minCols;
             const totalItems = categories.length;
@@ -413,7 +484,7 @@ export default function HomeScreen() {
                 cols = best;
               }
             }
-
+ 
             const cardWidth = Math.floor((avail - (cols - 1) * gap) / cols);
             return (
               <View style={[styles.categoriesGrid, { gap }]}> 
@@ -429,7 +500,7 @@ export default function HomeScreen() {
                         width: cardWidth,
                       },
                     ]}
-                    onPress={() => router.push(`/category-announcements?category=${encodeURIComponent(category.description)}`)}
+                    onPress={() => router.push(/category-announcements?category=${encodeURIComponent(category.description)})}
                   >
                     {/* Gradient fade background overlay (theme-aware intensity) */}
                     <LinearGradient
@@ -451,7 +522,7 @@ export default function HomeScreen() {
                       />
                     </View>
                     <ThemedText style={[styles.categoryLabel, { color: tokens.colors.muted }]}>
-                      {category.description}
+                      {t && (t.categories && t.categories[index]) ? t.categories[index] : category.description}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
@@ -459,14 +530,14 @@ export default function HomeScreen() {
             );
           })()}
         </View>
-
+ 
   {/* Legal Footer (hide 'Legal' section in Explore) */}
   <LegalFooter hideLegalSection />
       </ScrollView>
     </ThemedView>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   // Remove extra bottom spacing so the page ends right after the categories section
@@ -594,7 +665,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-
+ 
   /* star button removed */
   popularImage: {
     width: '100%',

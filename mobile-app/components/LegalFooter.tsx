@@ -2,17 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Linking } from 'react-native';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useRouter } from 'expo-router';
-
+ 
 interface LegalLink {
   label: string;
   url: string;
 }
-
+ 
 interface LegalSection {
   title: string;
   links: LegalLink[];
 }
-
+ 
 const legalSections: LegalSection[] = [
   {
     title: 'Legal',
@@ -23,15 +23,15 @@ const legalSections: LegalSection[] = [
     ],
   },
 ];
-
+ 
 export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: boolean }) {
   const { tokens } = useAppTheme();
   const { width } = useWindowDimensions();
   const router = useRouter();
-
+ 
   // Breakpoint pentru tablete și dispozitive mari (similar cu media query 900px)
   const isTabletOrLarger = width >= 768;
-
+ 
   const handleLinkPress = (url: string) => {
     if (url === '/about') {
       router.push('/about');
@@ -48,11 +48,14 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
     }
     Linking.openURL(url).catch(() => console.warn('Cannot open URL: ', url));
   };
-
+ 
   const sectionsToRender = legalSections.filter((s) => !(hideLegalSection && s.title === 'Legal'));
-
+ 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.colors.bg }]}>
+    <View style={[
+      styles.container,
+      { backgroundColor: tokens.colors.bg, paddingBottom: hideLegalSection ? 12 : styles.container.paddingBottom },
+    ]}>
       <View style={[styles.sectionsWrapper, isTabletOrLarger && styles.sectionsRow]}>
         {sectionsToRender.map((section, sectionIndex) => (
           <View 
@@ -85,7 +88,7 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
