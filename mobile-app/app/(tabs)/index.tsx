@@ -116,7 +116,7 @@ export default function HomeScreen() {
       const r = parseInt(h.substring(0, 2), 16);
       const g = parseInt(h.substring(2, 4), 16);
       const b = parseInt(h.substring(4, 6), 16);
-      return rgba(${r}, ${g}, ${b}, ${alpha});
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     } catch {
       return hex; // fallback
     }
@@ -141,7 +141,7 @@ export default function HomeScreen() {
         {/* Create grid pattern using semi-transparent lines */}
         {Array.from({ length: 50 }).map((_, i) => (
           <View
-            key={h-${i}}
+            key={`h-${i}`}
             style={{
               position: 'absolute',
               left: 0,
@@ -154,7 +154,7 @@ export default function HomeScreen() {
         ))}
         {Array.from({ length: 50 }).map((_, i) => (
           <View
-            key={v-${i}}
+            key={`v-${i}`}
             style={{
               position: 'absolute',
               top: 0,
@@ -177,7 +177,7 @@ export default function HomeScreen() {
         setNotifCount(0); 
         return; 
       }
-      const res = await api.get(/api/notifications/${user.id});
+      const res = await api.get(`/api/notifications/${user.id}`);
       const list = Array.isArray(res.data) ? res.data : [];
       // Considerăm ne-citit orice element cu read === false
       const unread = list.filter((n: any) => n && n.read === false).length;
@@ -330,7 +330,7 @@ export default function HomeScreen() {
                   const rem = arr.length % cols;
                   if (rem !== 0) {
                     const needed = cols - rem;
-                    for (let i = 0; i < needed; i++) arr.push({ _id: placeholder-show-all-${i}, placeholder: true });
+                    for (let i = 0; i < needed; i++) arr.push({ _id: `placeholder-show-all-${i}`, placeholder: true });
                   }
                 }
                 return arr;
@@ -383,7 +383,7 @@ export default function HomeScreen() {
                     }
  
                     return (
-                      <TouchableOpacity activeOpacity={0.9} style={itemStyle} onPress={() => router.push(/announcement-details?id=${item._id})}>
+                      <TouchableOpacity activeOpacity={0.9} style={itemStyle} onPress={() => router.push(`/announcement-details?id=${item._id}`)}>
                         <View style={[styles.popularImageWrap, { height: computedImageHeight }]}> 
                           <Image
                             source={{ uri: item.images && item.images[0] ? item.images[0] : undefined }}
@@ -430,7 +430,7 @@ export default function HomeScreen() {
                         {/* details button at bottom of card */}
                         <TouchableOpacity
                           activeOpacity={0.85}
-                          onPress={() => router.push(/announcement-details?id=${item._id})}
+                          onPress={() => router.push(`/announcement-details?id=${item._id}`)}
                           style={[
                             styles.detailsButton,
                             { backgroundColor: isDark ? '#f51866' : DESIGN_BLUE },
@@ -500,7 +500,7 @@ export default function HomeScreen() {
                         width: cardWidth,
                       },
                     ]}
-                    onPress={() => router.push(/category-announcements?category=${encodeURIComponent(category.description)})}
+                    onPress={() => router.push(`/category-announcements?category=${encodeURIComponent(category.description)}`)}
                   >
                     {/* Gradient fade background overlay (theme-aware intensity) */}
                     <LinearGradient
