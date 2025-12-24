@@ -11,9 +11,15 @@ import {
   FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
+import { useAppTheme } from '../src/context/ThemeContext';
+import api from '../src/services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function CategoryAnnouncementsScreen() {
   const { tokens } = useAppTheme();
@@ -21,6 +27,7 @@ export default function CategoryAnnouncementsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const category = params.category as string;
+  const navigation = useNavigation();
 
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +36,12 @@ export default function CategoryAnnouncementsScreen() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
   const [activePicker, setActivePicker] = useState<'sort' | null>(null);
+  
+  // Filter states
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [showPaid, setShowPaid] = useState(true);
+  const [showFree, setShowFree] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,7 +50,14 @@ export default function CategoryAnnouncementsScreen() {
   );
 
   // Hide the native header added by the stack navigator (prevents duplicate header)
-  // (Nota: cu expo-router, nu mai trebuie apelat navigation.setOptions)
+  useEffect(() => {
+    try {
+      // @ts-ignore
+      navigation.setOptions?.({ headerShown: false });
+    } catch (e) {
+      // ignore if navigation not available
+    }
+  }, [navigation]);
 
   const fetchAnnouncements = async () => {
     setLoading(true);
@@ -54,19 +74,35 @@ export default function CategoryAnnouncementsScreen() {
 
   const filteredAndSortedAnnouncements = useMemo(() => {
     let filtered = announcements.filter((a) => {
+      // Search filter
       const searchWords = searchTerm.toLowerCase().trim().split(/\s+/).filter((w) => w.length > 0);
 
-      if (searchWords.length === 0) {
-        return true;
+      if (searchWords.length > 0) {
+        const titleWords = a.title.toLowerCase().split(/\s+/);
+        const descriptionWords = a.description?.toLowerCase().split(/\s+/) || [];
+        const allTextWords = [...titleWords, ...descriptionWords];
+        
+        const matchesSearch = searchWords.every((searchWord) =>
+          allTextWords.some((textWord) => textWord.includes(searchWord) || searchWord.includes(textWord))
+        );
+        
+        if (!matchesSearch) return false;
       }
-
-      const titleWords = a.title.toLowerCase().split(/\s+/);
-      const descriptionWords = a.description?.toLowerCase().split(/\s+/) || [];
-      const allTextWords = [...titleWords, ...descriptionWords];
-
-      return searchWords.every((searchWord) =>
-        allTextWords.some((textWord) => textWord.includes(searchWord) || searchWord.includes(textWord))
-      );
+      
+      // Price filter
+      const price = parseFloat(a.price) || 0;
+      const min = priceMin ? parseFloat(priceMin) : null;
+      const max = priceMax ? parseFloat(priceMax) : null;
+      
+      if (min !== null && price < min) return false;
+      if (max !== null && price > max) return false;
+      
+      // Price type filter (free vs paid)
+      const isFree = price === 0;
+      if (isFree && !showFree) return false;
+      if (!isFree && !showPaid) return false;
+      
+      return true;
     });
 
     filtered.sort((a, b) => {
@@ -84,7 +120,7 @@ export default function CategoryAnnouncementsScreen() {
     });
 
     return filtered;
-  }, [announcements, searchTerm, sortBy]);
+  }, [announcements, searchTerm, sortBy, priceMin, priceMax, showPaid, showFree]);
 
   const sortOptions = [
     { label: 'Cele mai recente', value: 'recent' },
@@ -100,9 +136,9 @@ export default function CategoryAnnouncementsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
           <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: tokens.colors.text }]} numberOfLines={1}>
+        <ThemedText style={[styles.headerTitle, { color: tokens.colors.text }]} numberOfLines={1}>
           {category}
-        </Text>
+        </ThemedText>
       </View>
 
       <ScrollView
@@ -114,7 +150,7 @@ export default function CategoryAnnouncementsScreen() {
         <View style={[styles.searchContainer, { backgroundColor: tokens.colors.surface }]}>
           <View style={[styles.searchBar, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border }]}>
             <Ionicons name="search" size={20} color={tokens.colors.muted} style={styles.searchIcon} />
-            <TextInput
+            <ThemedTextInput
               style={[styles.searchInput, { color: tokens.colors.text }]}
               placeholder="Caută anunturi..."
               placeholderTextColor={tokens.colors.placeholder}
@@ -135,14 +171,14 @@ export default function CategoryAnnouncementsScreen() {
               onPress={() => setShowFilters(!showFilters)}
             >
               <Ionicons name="filter" size={16} color={showFilters ? '#fff' : tokens.colors.text} />
-              <Text
+              <ThemedText
                 style={[
                   styles.filterButtonText,
                   { color: showFilters ? '#fff' : tokens.colors.text },
                 ]}
               >
                 FILTRE
-              </Text>
+              </ThemedText>
             </TouchableOpacity>
 
             {/* Sort Dropdown */}
@@ -154,7 +190,7 @@ export default function CategoryAnnouncementsScreen() {
               ]}
               onPress={() => setActivePicker(activePicker === 'sort' ? null : 'sort')}
             >
-              <Text
+              <ThemedText
                 style={[
                   styles.filterButtonText,
                   { color: activePicker === 'sort' ? '#fff' : tokens.colors.text },
@@ -162,7 +198,7 @@ export default function CategoryAnnouncementsScreen() {
                 numberOfLines={1}
               >
                 Sortează după
-              </Text>
+              </ThemedText>
               <Ionicons
                 name={activePicker === 'sort' ? 'chevron-up' : 'chevron-down'}
                 size={16}
@@ -172,9 +208,9 @@ export default function CategoryAnnouncementsScreen() {
 
             {/* Results Count (keep on a single line) */}
             <View style={[styles.resultsCount, { alignItems: 'center' }]}> 
-              <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.resultsText, { color: tokens.colors.muted, flexShrink: 0 }]}>
+              <ThemedText numberOfLines={1} ellipsizeMode="tail" style={[styles.resultsText, { color: tokens.colors.muted, flexShrink: 0 }]}>
                 {filteredAndSortedAnnouncements.length} rezultate
-              </Text>
+              </ThemedText>
             </View>
 
             {/* View Mode Toggle */}
@@ -203,14 +239,14 @@ export default function CategoryAnnouncementsScreen() {
                     setActivePicker(null);
                   }}
                 >
-                  <Text
+                  <ThemedText
                     style={[
                       styles.pickerOptionText,
                       { color: sortBy === option.value ? tokens.colors.primary : tokens.colors.text },
                     ]}
                   >
                     {option.label}
-                  </Text>
+                  </ThemedText>
                   {sortBy === option.value && (
                     <Ionicons name="checkmark" size={18} color={tokens.colors.primary} />
                   )}
@@ -218,18 +254,157 @@ export default function CategoryAnnouncementsScreen() {
               ))}
             </View>
           )}
-
-          {/* Active Filters Chips */}
-          {searchTerm && (
-            <View style={styles.activeFilters}>
-              <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
-                <Text style={[styles.chipText, { color: tokens.colors.primary }]}>
-                  Căutare: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
-                </Text>
-                <TouchableOpacity onPress={() => setSearchTerm('')}>
-                  <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+          
+          {/* Filters Panel */}
+          {showFilters && (
+            <View style={[styles.filtersPanel, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
+              {/* Price Range */}
+              <View style={styles.filterSection}>
+                <ThemedText style={[styles.filterSectionTitle, { color: tokens.colors.text }]}>
+                  Interval de preț
+                </ThemedText>
+                <View style={styles.priceRow}>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={[styles.priceLabel, { color: tokens.colors.muted }]}>Min (RON)</ThemedText>
+                    <ThemedTextInput
+                      style={[styles.priceInput, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border, color: tokens.colors.text }]}
+                      placeholder="0"
+                      placeholderTextColor={tokens.colors.placeholder}
+                      keyboardType="numeric"
+                      value={priceMin}
+                      onChangeText={setPriceMin}
+                    />
+                  </View>
+                  <ThemedText style={[styles.priceSeparator, { color: tokens.colors.muted }]}>-</ThemedText>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={[styles.priceLabel, { color: tokens.colors.muted }]}>Max (RON)</ThemedText>
+                    <ThemedTextInput
+                      style={[styles.priceInput, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border, color: tokens.colors.text }]}
+                      placeholder="∞"
+                      placeholderTextColor={tokens.colors.placeholder}
+                      keyboardType="numeric"
+                      value={priceMax}
+                      onChangeText={setPriceMax}
+                    />
+                  </View>
+                </View>
+              </View>
+              
+              {/* Type Filter */}
+              <View style={styles.filterSection}>
+                <ThemedText style={[styles.filterSectionTitle, { color: tokens.colors.text }]}>
+                  Tip anunț
+                </ThemedText>
+                <View style={styles.checkboxRow}>
+                  <TouchableOpacity
+                    style={styles.checkboxItem}
+                    onPress={() => setShowPaid(!showPaid)}
+                  >
+                    <View style={[styles.checkbox, { borderColor: tokens.colors.border }]}>
+                      {showPaid && (
+                        <Ionicons name="checkmark" size={18} color={tokens.colors.primary} />
+                      )}
+                    </View>
+                    <ThemedText style={[styles.checkboxLabel, { color: tokens.colors.text }]}>
+                      Cu preț
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.checkboxItem}
+                    onPress={() => setShowFree(!showFree)}
+                  >
+                    <View style={[styles.checkbox, { borderColor: tokens.colors.border }]}>
+                      {showFree && (
+                        <Ionicons name="checkmark" size={18} color={tokens.colors.primary} />
+                      )}
+                    </View>
+                    <ThemedText style={[styles.checkboxLabel, { color: tokens.colors.text }]}>
+                      Gratuit
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* Filter Actions */}
+              <View style={styles.filterActions}>
+                <TouchableOpacity
+                  style={[styles.filterActionButton, styles.clearButton, { borderColor: tokens.colors.border }]}
+                  onPress={() => {
+                    setPriceMin('');
+                    setPriceMax('');
+                    setShowPaid(true);
+                    setShowFree(true);
+                  }}
+                >
+                  <ThemedText style={[styles.clearButtonText, { color: tokens.colors.text }]}>
+                    Resetează
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.filterActionButton, styles.applyButton, { backgroundColor: tokens.colors.primary }]}
+                  onPress={() => setShowFilters(false)}
+                >
+                  <ThemedText style={styles.applyButtonText}>
+                    Aplică
+                  </ThemedText>
                 </TouchableOpacity>
               </View>
+            </View>
+          )}
+
+          {/* Active Filters Chips */}
+          {(searchTerm || priceMin || priceMax || !showPaid || !showFree) && (
+            <View style={styles.activeFilters}>
+              {searchTerm && (
+                <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
+                  <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
+                    Căutare: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setSearchTerm('')}>
+                    <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {priceMin && (
+                <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
+                  <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
+                    Min: {priceMin} RON
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setPriceMin('')}>
+                    <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {priceMax && (
+                <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
+                  <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
+                    Max: {priceMax} RON
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setPriceMax('')}>
+                    <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {!showPaid && (
+                <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
+                  <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
+                    Fără anunțuri cu preț
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setShowPaid(true)}>
+                    <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {!showFree && (
+                <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
+                  <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
+                    Fără anunțuri gratuite
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setShowFree(true)}>
+                    <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -242,11 +417,11 @@ export default function CategoryAnnouncementsScreen() {
         ) : filteredAndSortedAnnouncements.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={64} color={tokens.colors.muted} />
-            <Text style={[styles.emptyText, { color: tokens.colors.muted }]}>
+            <ThemedText style={[styles.emptyText, { color: tokens.colors.muted }]}>
               {announcements.length === 0
                 ? 'Nu există anunțuri pentru această categorie.'
                 : 'Nu s-au găsit anunțuri care să corespundă filtrelor.'}
-            </Text>
+            </ThemedText>
           </View>
         ) : (
           <View style={styles.announcementsContainer}>
@@ -271,16 +446,16 @@ export default function CategoryAnnouncementsScreen() {
                       style={styles.gridImage}
                     />
                     <View style={styles.gridInfo}>
-                      <Text numberOfLines={2} style={[styles.gridTitle, { color: tokens.colors.text }]}>
+                      <ThemedText numberOfLines={2} style={[styles.gridTitle, { color: tokens.colors.text }]}>
                         {item.title}
-                      </Text>
-                      <Text numberOfLines={1} style={[styles.gridLocation, { color: tokens.colors.muted }]}>
+                      </ThemedText>
+                      <ThemedText numberOfLines={1} style={[styles.gridLocation, { color: tokens.colors.muted }]}>
                         {item.location || ''}
-                      </Text>
+                      </ThemedText>
                       {item.price !== undefined && (
-                        <Text style={[styles.gridPrice, { color: tokens.colors.primary }]}>
+                        <ThemedText style={[styles.gridPrice, { color: tokens.colors.primary }]}>
                           {parseFloat(item.price) === 0 ? 'Gratuit' : `${item.price} RON`}
-                        </Text>
+                        </ThemedText>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -307,16 +482,16 @@ export default function CategoryAnnouncementsScreen() {
                       style={styles.listImage}
                     />
                     <View style={styles.listInfo}>
-                      <Text numberOfLines={2} style={[styles.listTitle, { color: tokens.colors.text }]}>
+                      <ThemedText numberOfLines={2} style={[styles.listTitle, { color: tokens.colors.text }]}>
                         {item.title}
-                      </Text>
-                      <Text numberOfLines={1} style={[styles.listLocation, { color: tokens.colors.muted }]}>
+                      </ThemedText>
+                      <ThemedText numberOfLines={1} style={[styles.listLocation, { color: tokens.colors.muted }]}>
                         {item.location || ''}
-                      </Text>
+                      </ThemedText>
                       {item.price !== undefined && (
-                        <Text style={[styles.listPrice, { color: tokens.colors.primary }]}>
+                        <ThemedText style={[styles.listPrice, { color: tokens.colors.primary }]}>
                           {parseFloat(item.price) === 0 ? 'Gratuit' : `${item.price} RON`}
-                        </Text>
+                        </ThemedText>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -527,5 +702,83 @@ const styles = StyleSheet.create({
   listPrice: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  filtersPanel: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  priceLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  priceInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  priceSeparator: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  checkboxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  filterActionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  clearButton: {
+    borderWidth: 1,
+  },
+  clearButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  applyButton: {},
+  applyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

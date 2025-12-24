@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import storage from '../services/storage';
 import api from '../services/api';
 import { loginWithCredentials, saveToken, logout as doLogout } from '../services/auth';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
 
 interface UserProfile {
   id?: string;
@@ -14,6 +15,13 @@ interface UserProfile {
   phone?: string;
   localitate?: string;
   createdAt?: string;
+  notificationSettings?: {
+    email: boolean;
+    push: boolean;
+    messages: boolean;
+    reviews: boolean;
+    promotions: boolean;
+  };
 }
 
 interface AuthContextType {
@@ -47,6 +55,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           phone: res.data.phone,
           localitate: res.data.localitate,
           createdAt: res.data.createdAt,
+          notificationSettings: res.data.notificationSettings || {
+            email: true,
+            push: true,
+            messages: true,
+            reviews: true,
+            promotions: false
+          },
         });
       } else {
         setUser(null);
@@ -66,19 +81,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await fetchProfile();
           // After profile is available, register for push notifications
           try {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-            if (existingStatus !== 'granted') {
-              const { status } = await Notifications.requestPermissionsAsync();
-              finalStatus = status;
-            }
-            if (finalStatus === 'granted') {
-              const projectId = (Constants as any)?.expoConfig?.extra?.eas?.projectId || (Constants as any)?.easConfig?.projectId;
-              const pushTokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined as any);
-              const tokenValue = (pushTokenData as any)?.data || (pushTokenData as any)?.expoPushToken;
-              if (tokenValue) {
-                try { await api.post('/api/users/push-token', { token: tokenValue }); } catch (_) {}
-              }
+            const tokenValue = await registerForPushNotificationsAsync();
+            if (tokenValue) {
+              try { await api.post('/api/users/push-token', { token: tokenValue }); } catch (_) {}
             }
           } catch (e) {
             // ignore push errors to not block auth
@@ -111,6 +116,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await saveToken(data.token);
         setToken(data.token);
         await fetchProfile();
+
+        // Register for push notifications
+        try {
+          const tokenValue = await registerForPushNotificationsAsync();
+          if (tokenValue) {
+            try { await api.post('/api/users/push-token', { token: tokenValue }); } catch (_) {}
+          }
+        } catch (e) {
+          // ignore
+        }
+
         setLoading(false);
         return true;
       }
@@ -127,7 +143,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      try { await api.delete('/api/users/push-token'); } catch (_) {}
+      // Try to get current push token to remove only this device
+      let tokenValue;
+      try {
+        tokenValue = await registerForPushNotificationsAsync();
+      } catch (_) {}
+
+      try { 
+        if (tokenValue) {
+          await api.delete('/api/users/push-token', { data: { token: tokenValue } }); 
+        } else {
+          await api.delete('/api/users/push-token'); 
+        }
+      } catch (_) {}
+
       await doLogout();
       setUser(null);
       setToken(null);

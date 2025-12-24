@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import api from '../services/api';
+// @ts-ignore - socket.io-client types are not critical here
+import { io, Socket } from 'socket.io-client';
 
 interface ChatNotificationContextType {
   unreadCount: number;
@@ -15,6 +17,7 @@ const ChatNotificationContext = createContext<ChatNotificationContextType | unde
 export const ChatNotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const socketRef = useRef<Socket | null>(null);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -57,6 +60,38 @@ export const ChatNotificationProvider: React.FC<{ children: React.ReactNode }> =
       setUnreadCount(0);
     }
   }, [isAuthenticated, user?.id, refreshUnreadCount]);
+
+  // Setup Socket.IO when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
+    // derive backend URL from api baseURL
+    const base = (api.defaults.baseURL || '').replace(/\/$/, '');
+    const socketUrl = base || 'http://localhost:5000';
+
+    // connect
+    const socket = io(socketUrl, { transports: ['websocket'], autoConnect: true });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      // join with user id so server maps socket id
+      socket.emit('join', String(user.id));
+    });
+
+    socket.on('newMessage', (payload: any) => {
+      // payload might contain conversationId and unread delta
+      setUnreadCount((prev) => prev + 1);
+    });
+
+    socket.on('disconnect', () => {
+      // noop
+    });
+
+    return () => {
+      try { socket.disconnect(); } catch (_) {}
+      socketRef.current = null;
+    };
+  }, [isAuthenticated, user?.id]);
 
   // Refresh unread count periodically (every 30 seconds)
   useEffect(() => {

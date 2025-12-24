@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
+import { ThemedText } from '../components/themed-text';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import storage from '../src/services/storage';
@@ -39,8 +40,8 @@ export default function StarredMessagesScreen({ navigation }: any) {
         <Image source={{ uri: item.image || undefined }} style={styles.thumb} />
       </View>
       <View style={styles.center}>
-        <Text style={styles.text} numberOfLines={2}>{item.text || (item.image ? 'Imagine' : 'Mesaj')}</Text>
-        <Text style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</Text>
+        <ThemedText style={styles.text} numberOfLines={2}>{item.text || (item.image ? 'Imagine' : 'Mesaj')}</ThemedText>
+        <ThemedText style={styles.meta}>{new Date(item.createdAt).toLocaleString()}</ThemedText>
       </View>
       <TouchableOpacity style={styles.action} onPress={async () => {
         // remove
@@ -63,7 +64,7 @@ export default function StarredMessagesScreen({ navigation }: any) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12, backgroundColor: tokens.colors.bg }] }>
       <View style={styles.header}>
-        <Text style={styles.title}>Mesaje cu stea</Text>
+        <ThemedText style={styles.title}>Mesaje cu stea</ThemedText>
       </View>
       <FlatList
         data={items}
@@ -72,7 +73,7 @@ export default function StarredMessagesScreen({ navigation }: any) {
         contentContainerStyle={{ padding: 12 }}
         ListEmptyComponent={() => (
           <View style={{ alignItems: 'center', marginTop: 40 }}>
-            <Text style={{ color: '#666' }}>Nu ai mesaje salvate cu stea.</Text>
+            <ThemedText style={{ color: '#666' }}>Nu ai mesaje salvate cu stea.</ThemedText>
           </View>
         )}
       />

@@ -1,0 +1,106 @@
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { ThemedText } from '../../../components/themed-text';
+
+// Aceeași interfață de props ca în varianta native, dar fără dependință de
+// `react-native-image-viewing`, astfel încât web să nu mai încarce deloc
+// pachetul nativ.
+type ImageSource = { uri?: string } | string | number;
+
+type Props = {
+  images: ImageSource[];
+  imageIndex?: number;
+  visible: boolean;
+  onRequestClose: () => void;
+  onImageIndexChange?: (index: number) => void;
+  HeaderComponent?: any;
+  FooterComponent?: any;
+  showCounter?: boolean; // arată X/Y în fallback
+  [key: string]: any;
+};
+
+export default function ImageViewer(props: Props) {
+  const { images = [], imageIndex = 0, visible, onRequestClose, onImageIndexChange, showCounter = false } = props;
+
+  const [index, setIndex] = useState(imageIndex);
+
+  useEffect(() => {
+    setIndex(imageIndex);
+  }, [imageIndex, visible]);
+
+  useEffect(() => {
+    if (onImageIndexChange) onImageIndexChange(index);
+  }, [index, onImageIndexChange]);
+
+  const resolveSource = (src: ImageSource) => {
+    if (typeof src === 'string') return { uri: src };
+    if (typeof src === 'number') return src as any;
+    if (src && typeof src === 'object' && 'uri' in src && (src as any).uri) return { uri: (src as any).uri };
+    return undefined;
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.closeBtn} onPress={onRequestClose} accessibilityLabel="Închide">
+          <ThemedText style={styles.closeText}>×</ThemedText>
+        </TouchableOpacity>
+
+        <View style={styles.imageWrap}>
+          {resolveSource(images[index]) ? (
+            <Image source={resolveSource(images[index]) as any} style={styles.image} resizeMode="contain" />
+          ) : null}
+        </View>
+
+        <View style={styles.controls}>
+          <TouchableOpacity
+            disabled={index <= 0}
+            onPress={() => setIndex(Math.max(0, index - 1))}
+            style={styles.navBtn}
+          >
+            <ThemedText style={[styles.navText, index <= 0 && styles.disabled]}>Prev</ThemedText>
+          </TouchableOpacity>
+          {showCounter && (
+            <ThemedText style={styles.counter}>
+              {index + 1}/{images.length}
+            </ThemedText>
+          )}
+          <TouchableOpacity
+            disabled={index >= images.length - 1}
+            onPress={() => setIndex(Math.min(images.length - 1, index + 1))}
+            style={styles.navBtn}
+          >
+            <ThemedText style={[styles.navText, index >= images.length - 1 && styles.disabled]}>Next</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtn: { position: 'absolute', top: 20, right: 18, zIndex: 20 },
+  closeText: { color: '#fff', fontSize: 32, lineHeight: 36, fontFamily: 'Poppins-Regular' },
+  imageWrap: { width: '100%', height: '80%', alignItems: 'center', justifyContent: 'center' },
+  image: { width: '100%', height: '100%' },
+  controls: {
+    position: 'absolute',
+    bottom: 36,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 28,
+    alignItems: 'center',
+  },
+  navBtn: { padding: 12 },
+  navText: { color: '#fff', fontSize: 16, fontFamily: 'Poppins-Regular' },
+  disabled: { opacity: 0.35 },
+  counter: { color: '#fff', fontSize: 14, fontFamily: 'Poppins-Regular' },
+});

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ThemedText } from '../themed-text';
 import { useAppTheme } from '../../src/context/ThemeContext';
 
 interface ConfirmDialogProps {
@@ -129,7 +130,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             </View>
 
             {/* Title */}
-            <Text
+            <ThemedText
               style={[
                 styles.title,
                 {
@@ -138,10 +139,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               ]}
             >
               {title}
-            </Text>
+            </ThemedText>
 
             {/* Message */}
-            <Text
+            <ThemedText
               style={[
                 styles.message,
                 {
@@ -150,7 +151,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               ]}
             >
               {message}
-            </Text>
+            </ThemedText>
 
             {/* Buttons */}
             <View style={styles.buttonsContainer}>
@@ -170,7 +171,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onPress={onCancel}
                 activeOpacity={0.7}
               >
-                <Text
+                <ThemedText
                   style={[
                     styles.buttonText,
                     {
@@ -179,7 +180,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   ]}
                 >
                   {cancelText}
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -193,9 +194,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onPress={onConfirm}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.buttonText, styles.confirmButtonText]}>
+                <ThemedText style={[styles.buttonText, styles.confirmButtonText]}>
                   {confirmText}
-                </Text>
+                </ThemedText>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -239,12 +240,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
   },
   message: {
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 24,
+    fontFamily: 'Poppins-Regular',
   },
   buttonsContainer: {
     flexDirection: 'row',
@@ -266,6 +269,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
   },
   confirmButtonText: {
     color: '#FFFFFF',

@@ -1,26 +1,143 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, StyleSheet, View, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import storage from '../src/services/storage';
+import { useLocale } from '../src/context/LocaleContext';
 
 interface FAQ { question: string; answer: string; }
-
-const FAQS: FAQ[] = [
-  { question: 'Este gratuit să folosesc Hobbiz?', answer: 'Da, înregistrarea și utilizarea de bază a platformei Hobbiz sunt complet gratuite. Poți publica și răspunde la anunțuri și comunica cu alți utilizatori fără costuri.' },
-  { question: 'Cum îmi protejez datele personale?', answer: 'Luăm în serios protecția datelor tale. Folosim criptare avansată și nu împărtășim informațiile tale personale cu terți fără consimțământ explicit.' },
-  { question: 'Pot vinde atât produse cât și servicii?', answer: 'Absolut! Poți promova servicii, produse handmade, obiecte, vechituri, alimente și multe altele.' },
-  { question: 'Cum funcționează sistemul de mesagerie?', answer: 'Mesageria integrată îți permite discuții directe, negociere și coordonare în siguranță.' },
-];
+const TRANSLATIONS: Record<string, any> = {
+  ro: {
+    title: 'Despre noi',
+    badge: '✨ Platforma pasionaților',
+    heroPrefix: 'Transformă-ți',
+    heroHighlighted: 'pasiunea',
+    heroSuffix: 'în oportunitate',
+    missionTitle: 'Misiunea noastră',
+    missionSubtitle: 'Construim punți între talente și oportunități',
+    missionText: 'Hobbiz este o platformă comunitară gratuită care celebrează autenticitatea și creativitatea. Credem că fiecare talent merită să fie văzut și apreciat. Platforma noastră conectează pasionați cu clienți care apreciază calitatea și originalitatea, creând un ecosistem unde hobby-urile devin surse de venit.',
+    pillars: [
+      { icon: '🌟', title: 'Autenticitate', text: 'Promovăm produse și servicii unice, create cu pasiune' },
+      { icon: '🤝', title: 'Comunitate', text: 'Legăm pasionați și clienți în mod direct și cald' },
+      { icon: '🚀', title: 'Creștere', text: 'Oferim instrumente pentru dezvoltarea afacerilor creative' },
+    ],
+    features: [
+      'Descoperi o nouă sursă de venit',
+      'Publici anunțuri pentru serviciile sau produselor tale',
+      'Află despre ofertele locale sau naționale',
+      'Salvează anunțurile preferate și contactează direct vânzătorii',
+      'Cunoaște alți oameni cu aceleași pasiuni și colaborează sau conversează cu ei',
+      'Gestionează-ți contul și anunțurile rapid și intuitiv',
+    ],
+    featuresHeader: 'Ce poți face pe Hobbiz?',
+    reasonsHeader: 'De ce să alegi Hobbiz?',
+    reasons: [
+      'Platformă modernă și rapidă',
+      'Comunitate prietenoasă și suport rapid',
+      'Promovare gratuită pentru pasiunile tale',
+      'Interfață intuitivă și experiență de utilizare optimă',
+      'Securitate și confidențialitate garantate',
+      'Conectare directă între creatori și cumpărători',
+    ],
+    howHeader: 'Cum funcționează?',
+    steps: [
+      { n: 1, t: 'Înregistrează-te', d: 'Creează un cont gratuit' },
+      { n: 2, t: 'Publică sau caută', d: 'Adaugă anunțuri sau găsește ce îți trebuie' },
+      { n: 3, t: 'Conectează-te', d: 'Discuții directe prin mesagerie' },
+      { n: 4, t: 'Colaborează', d: 'Tranzacții sigure și colaborări' },
+    ],
+    valuesHeader: 'Valorile noastre',
+    values: [
+      { icon: '🛡️', title: 'Securitate', text: 'Protejăm datele și interacțiunile tale.' },
+      { icon: '🤝', title: 'Comunitate', text: 'Spațiu prietenos și colaborativ.' },
+      { icon: '🏗️', title: 'Dezvoltare', text: 'Îmbunătățim constant experiența.' },
+      { icon: '⚡', title: 'Simplitate', text: 'Ne dorim să facilităm cât mai mult utilizarea platformei.' },
+    ],
+    faqHeader: 'Întrebări frecvente',
+    faqs: [
+      { q: 'Este gratuit să folosesc Hobbiz?', a: 'Da, înregistrarea și utilizarea de bază a platformei Hobbiz sunt complet gratuite. Poți publica și răspunde la anunțuri și comunica cu alți utilizatori fără costuri.' },
+      { q: 'Cum îmi protejez datele personale?', a: 'Luăm în serios protecția datelor tale. Folosim criptare avansată și nu împărtășim informațiile tale personale cu terți fără consimțământ explicit.' },
+      { q: 'Pot vinde atât produse cât și servicii?', a: 'Absolut! Poți promova servicii, produse handmade, obiecte, vechituri, alimente și multe altele.' },
+      { q: 'Cum funcționează sistemul de mesagerie?', a: 'Mesageria integrată îți permite discuții directe, negociere și coordonare în siguranță.' },
+    ],
+    updateText: 'Ultima actualizare: 13 decembrie 2025',
+    contactTitle: 'Contactează-ne',
+    contactText: 'Pentru întrebări, sugestii sau asistență tehnică (răspunsuri în 2-5 zile):',
+    contactEmail: 'Email: team.hobbiz@gmail.com',
+    contactCompany: 'Platformă comunitară gratuită - România',
+  },
+  en: {
+    title: 'About Us',
+    badge: '✨ The makers community',
+    heroPrefix: "Turn your",
+    heroHighlighted: 'passion',
+    heroSuffix: 'into opportunity',
+    missionTitle: 'Our mission',
+    missionSubtitle: 'Building bridges between talent and opportunity',
+    missionText: 'Hobbiz is a free community platform celebrating authenticity and creativity. We believe every talent deserves to be seen and recognized. Our platform connects passionate creators with clients who appreciate quality and originality, creating an ecosystem where hobbies become income sources.',
+    pillars: [
+      { icon: '🌟', title: 'Authenticity', text: 'We promote unique products and services made with passion' },
+      { icon: '🤝', title: 'Community', text: 'Connecting creators and customers directly and warmly' },
+      { icon: '🚀', title: 'Growth', text: 'We provide tools to help creative businesses grow' },
+    ],
+    features: [
+      'Discover a new income stream',
+      'Post listings for your services or products',
+      'Find local or national offers',
+      'Save favorites and contact sellers directly',
+      'Meet people who share your passions and collaborate or chat',
+      'Manage your account and listings quickly and intuitively',
+    ],
+    featuresHeader: 'What can you do on Hobbiz?',
+    reasonsHeader: 'Why choose Hobbiz?',
+    reasons: [
+      'Modern and fast platform',
+      'Friendly community and quick support',
+      'Free promotion for your passions',
+      'Intuitive interface and great UX',
+      'Security and privacy guaranteed',
+      'Direct connection between creators and buyers',
+    ],
+    howHeader: 'How it works',
+    steps: [
+      { n: 1, t: 'Sign up', d: 'Create a free account' },
+      { n: 2, t: 'Post or search', d: "Add listings or find what you need" },
+      { n: 3, t: 'Connect', d: 'Direct conversations via messaging' },
+      { n: 4, t: 'Collaborate', d: 'Secure transactions and partnerships' },
+    ],
+    valuesHeader: 'Our values',
+    values: [
+      { icon: '🛡️', title: 'Security', text: 'We protect your data and interactions.' },
+      { icon: '🤝', title: 'Community', text: 'A friendly and collaborative space.' },
+      { icon: '🏗️', title: 'Development', text: 'We continuously improve the experience.' },
+      { icon: '⚡', title: 'Simplicity', text: 'We aim to make the app as easy to use as possible.' },
+    ],
+    faqHeader: 'Frequently Asked Questions',
+    faqs: [
+      { q: 'Is Hobbiz free to use?', a: 'Yes, registering and basic use of Hobbiz are completely free. You can post and respond to listings and communicate with other users at no cost.' },
+      { q: 'How do you protect my personal data?', a: "We take your data protection seriously. We use strong encryption and do not share your personal information with third parties without explicit consent." },
+      { q: 'Can I sell both products and services?', a: 'Absolutely! You can promote services, handmade products, items, vintage goods, food and more.' },
+      { q: 'How does messaging work?', a: 'Built-in messaging lets you chat directly, negotiate and coordinate safely.' },
+    ],
+    updateText: 'Last updated: December 13, 2025',
+    contactTitle: 'Contact Us',
+    contactText: 'For questions, suggestions or technical support (replies in 2-5 days):',
+    contactEmail: 'Email: team.hobbiz@gmail.com',
+    contactCompany: 'Free community platform - Romania',
+  }
+};
 
 export default function AboutScreen() {
   const { tokens } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [open, setOpen] = useState<number | null>(null);
+  const { locale } = useLocale();
+  const t = TRANSLATIONS[locale || 'ro'];
   const { width } = useWindowDimensions();
   // Use a conservative breakpoint: >=350dp -> 2 coloane, altfel 1 coloană
   const isTwoCol = width >= 350;
@@ -37,37 +154,6 @@ export default function AboutScreen() {
   const tintList = [tints.a10, tints.a20, tints.a30, tints.a40, tints.a50, tints.a60];
 
   const toggle = (idx: number) => setOpen(open === idx ? null : idx);
-  const features = [
-    'Descoperi o nouă sursă de venit',
-    'Publici anunțuri pentru serviciile sau produsele tale',
-    'Află despre ofertele locale sau naționale',
-    'Salvează anunțurile preferate și contactează direct vânzătorii',
-    'Cunoaște alți oameni cu aceleași pasiuni și colaborează sau conversează cu ei',
-    'Gestionează-ți contul și anunțurile rapid și intuitiv',
-  ];
-
-  const reasons = [
-    'Platformă modernă și rapidă',
-    'Comunitate prietenoasă și suport rapid',
-    'Promovare gratuită pentru pasiunile tale',
-    'Interfață intuitivă și experiență de utilizare optimă',
-    'Securitate și confidențialitate garantate',
-    'Conectare directă între creatori și cumpărători',
-  ];
-
-  const steps = [
-    { n: 1, t: 'Înregistrează-te', d: 'Creează un cont gratuit' },
-    { n: 2, t: 'Publică sau caută', d: 'Adaugă anunțuri sau găsește ce îți trebuie' },
-    { n: 3, t: 'Conectează-te', d: 'Discuții directe prin mesagerie' },
-    { n: 4, t: 'Colaborează', d: 'Tranzacții sigure și colaborări' },
-  ];
-
-  const values = [
-    { icon: '🛡️', title: 'Securitate', text: 'Protejăm datele și interacțiunile tale.' },
-    { icon: '🤝', title: 'Comunitate', text: 'Spațiu prietenos și colaborativ.' },
-    { icon: '🏗️', title: 'Dezvoltare', text: 'Îmbunătățim constant experiența.' },
-    { icon: '⚡', title: 'Simplitate', text: 'Ne dorim să facilităm cât mai mult utilizarea platformei.' },
-  ];
 
   // StrokeWord: layered white text behind the colored word to simulate a simple contour/stroke
   const StrokeWord = ({ children, color = tints.a10, stroke = true }: { children: React.ReactNode; color?: string; stroke?: boolean }) => (
@@ -84,9 +170,11 @@ export default function AboutScreen() {
     </View>
   );
 
+  const scrollStyle = Platform.OS === 'web' ? { height: '100vh' as any } : { flex: 1 };
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }]}>      
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={scrollStyle} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.headerRow}>
               <TouchableOpacity
@@ -96,7 +184,7 @@ export default function AboutScreen() {
               >
                 <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
               </TouchableOpacity>
-              <ThemedText style={[styles.title, { color: tokens.colors.text }]}>Despre noi</ThemedText>
+              <ThemedText style={[styles.title, { color: tokens.colors.text }]}>{t?.title ?? 'Despre noi'}</ThemedText>
             </View>
 
             {/* Hero */}
@@ -124,15 +212,15 @@ export default function AboutScreen() {
                     },
                   ]}
                 >
-                  <ThemedText style={[styles.badgeText, { color: tints.a10, textAlign: 'center' }]}>✨ Platforma pasionaților</ThemedText>
+                  <ThemedText style={[styles.badgeText, { color: tints.a10, textAlign: 'center' }]}>{t?.badge}</ThemedText>
                 </View>
 
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', marginTop: tokens.spacing.md }}>
-                <ThemedText style={[styles.heroTitle, { color: '#ffffff' }]}>Transformă-ți </ThemedText>
+                <ThemedText style={[styles.heroTitle, { color: '#ffffff' }]}>{t?.heroPrefix} </ThemedText>
                 <View style={{ marginHorizontal: 4 }}>
-                  <StrokeWord color={tints.a40} stroke={false}>pasiunea</StrokeWord>
+                  <StrokeWord color={tints.a40} stroke={false}>{t?.heroHighlighted}</StrokeWord>
                 </View>
-                <ThemedText style={[styles.heroTitle, { color: '#ffffff' }]}> în oportunitate</ThemedText>
+                <ThemedText style={[styles.heroTitle, { color: '#ffffff' }]}>{' '}{t?.heroSuffix}</ThemedText>
               </View>
 
             {/* subtle decorative element: a lighter strip to mimic web gradient */}
@@ -158,18 +246,14 @@ export default function AboutScreen() {
                   <ThemedText style={{ fontSize: 22 }}>🎯</ThemedText>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.missionTitle, { color: tokens.colors.text }]}>Misiunea noastră</ThemedText>
-                  <ThemedText style={[styles.missionSubtitle, { color: tokens.colors.muted }]}>Construim punți între talente și oportunități</ThemedText>
+                  <ThemedText style={[styles.missionTitle, { color: tokens.colors.text }]}>{t?.missionTitle}</ThemedText>
+                  <ThemedText style={[styles.missionSubtitle, { color: tokens.colors.muted }]}>{t?.missionSubtitle}</ThemedText>
                 </View>
               </View>
-              <ThemedText style={[styles.paragraph, { color: tokens.colors.text }]}>Hobbiz este o comunitate care celebrează autenticitatea și creativitatea. Credem că fiecare talent merită să fie văzut și apreciat.</ThemedText>
+              <ThemedText style={[styles.paragraph, { color: tokens.colors.text }]}>{t?.missionText}</ThemedText>
 
               <View style={styles.pillars}>            
-                {[
-                  { icon: '🌟', title: 'Autenticitate', text: 'Promovăm produse și servicii unice, create cu pasiune' },
-                  { icon: '🤝', title: 'Comunitate', text: 'Legăm pasionați și clienți în mod direct și cald' },
-                  { icon: '🚀', title: 'Creștere', text: 'Oferim instrumente pentru dezvoltarea afacerilor creative' },
-                ].map(p => (
+                {t?.pillars?.map((p: any) => (
                   <View key={p.title} style={[styles.pillarItem, { borderColor: tokens.colors.border }]}>                
                     <View style={styles.pillarIcon}><ThemedText>{p.icon}</ThemedText></View>
                     <View style={{ flex: 1 }}>
@@ -183,13 +267,13 @@ export default function AboutScreen() {
 
             {/* Features */}
             <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
-              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>Ce poți face pe Hobbiz?</ThemedText>
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.featuresHeader ?? 'Ce poți face pe Hobbiz?'}</ThemedText>
               <View style={styles.checkList}>
-                {features.map(line => (
+                {t?.features?.map((line: string) => (
                   <View key={line} style={styles.checkRow}>
                     <View style={[styles.checkIconWrapper, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border }]}
                     >
-                      <Ionicons name="checkmark" size={16} color={tintList[features.indexOf(line) % tintList.length]} />
+                      <Ionicons name="checkmark" size={16} color={tintList[t?.features.indexOf(line) % tintList.length]} />
                     </View>
                     <ThemedText style={[styles.checkText, { color: tokens.colors.muted }]}>{line}</ThemedText>
                   </View>
@@ -199,12 +283,12 @@ export default function AboutScreen() {
 
             {/* Reasons */}
             <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
-              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>De ce să alegi Hobbiz?</ThemedText>
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.reasonsHeader ?? 'De ce să alegi Hobbiz?'}</ThemedText>
               <View style={styles.checkList}>
-                {reasons.map(line => (
+                {t?.reasons?.map((line: string) => (
                   <View key={line} style={styles.checkRow}>
                     <View style={[styles.checkIconWrapper, { backgroundColor: tokens.colors.bg, borderColor: tokens.colors.border }]}>
-                      <Ionicons name="checkmark" size={16} color={tintList[reasons.indexOf(line) % tintList.length]} />
+                      <Ionicons name="checkmark" size={16} color={tintList[t?.reasons.indexOf(line) % tintList.length]} />
                     </View>
                     <ThemedText style={[styles.checkText, { color: tokens.colors.muted }]}>{line}</ThemedText>
                   </View>
@@ -214,8 +298,8 @@ export default function AboutScreen() {
 
             {/* How it works */}
             <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
-              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>Cum funcționează?</ThemedText>
-              {steps.map((step, idx) => (
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.howHeader ?? 'Cum funcționează?'}</ThemedText>
+              {t?.steps?.map((step: any, idx: number) => (
                 <View key={step.n} style={styles.stepRow}>
                   <View style={[styles.stepCircle, { backgroundColor: tintList[idx % tintList.length], borderColor: 'transparent', borderWidth: 0 }]}>
                     <ThemedText style={[styles.stepNumber, { color: '#ffffff' }]}>{step.n}</ThemedText>
@@ -230,9 +314,9 @@ export default function AboutScreen() {
 
             {/* Values */}
             <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
-              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>Valorile noastre</ThemedText>
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.valuesHeader ?? 'Valorile noastre'}</ThemedText>
               <View style={styles.valuesGrid}>
-                {values.map(v => (
+                {t?.values?.map((v: any) => (
                   <View key={v.title} style={[
                     styles.valueCard, 
                     { backgroundColor: tokens.colors.elev, borderColor: tokens.colors.border },
@@ -248,11 +332,11 @@ export default function AboutScreen() {
 
             {/* FAQ */}
             <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
-              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>Întrebări frecvente</ThemedText>
-              {FAQS.map((f, idx) => {
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.faqHeader ?? 'Întrebări frecvente'}</ThemedText>
+              {t?.faqs?.map((f: any, idx: number) => {
                 const tint = tintList[idx % tintList.length];
                 return (
-                  <View key={f.question}>
+                  <View key={f.q}>
                     <TouchableOpacity
                       onPress={() => toggle(idx)}
                       activeOpacity={0.7}
@@ -261,18 +345,31 @@ export default function AboutScreen() {
                         { borderColor: tokens.colors.border, borderLeftWidth: 4, borderLeftColor: tint, paddingLeft: 12 },
                       ]}
                     >
-                      <ThemedText style={[styles.faqQuestionText, { color: tint }]}>{f.question}</ThemedText>
+                      <ThemedText style={[styles.faqQuestionText, { color: tint }]}>{f.q}</ThemedText>
                       <Ionicons name={open === idx ? 'chevron-up' : 'chevron-down'} size={18} color={tint} />
                     </TouchableOpacity>
                     {open === idx && (
                       <View style={styles.faqAnswer}>                  
-                        <ThemedText style={{ color: tokens.colors.muted, lineHeight: 20 }}>{f.answer}</ThemedText>
+                        <ThemedText style={{ color: tokens.colors.muted, lineHeight: 20 }}>{f.a}</ThemedText>
                       </View>
                     )}
                   </View>
                 );
               })}
-              <ThemedText style={[styles.updateText, { color: tokens.colors.muted }]}>Ultima actualizare: 19 iulie 2025</ThemedText>
+              <ThemedText style={[styles.updateText, { color: tokens.colors.muted }]}>{t?.updateText}</ThemedText>
+            </View>
+
+            {/* Contact Section */}
+            <View style={[styles.card, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
+              <ThemedText style={[styles.sectionHeader, { color: tokens.colors.text }]}>{t?.contactTitle ?? 'Contactează-ne'}</ThemedText>
+              <ThemedText style={[styles.paragraph, { color: tokens.colors.muted }]}>{t?.contactText}</ThemedText>
+              <View style={[styles.pillarItem, { borderColor: tokens.colors.border, marginTop: 12 }]}>                
+                <View style={styles.pillarIcon}><ThemedText>📧</ThemedText></View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={[styles.pillarTitle, { color: tokens.colors.text }]}>{t?.contactEmail}</ThemedText>
+                  <ThemedText style={[styles.pillarText, { color: tokens.colors.muted }]}>{t?.contactCompany}</ThemedText>
+                </View>
+              </View>
             </View>
       </ScrollView>
     </ThemedView>

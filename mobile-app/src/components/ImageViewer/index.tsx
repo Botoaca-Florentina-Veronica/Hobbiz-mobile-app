@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Image, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { ThemedText } from '../../../components/themed-text';
 
 type ImageSource = { uri?: string } | string | number;
 
@@ -69,7 +70,7 @@ export default function ImageViewer(props: Props) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
       <View style={styles.container}>
         <TouchableOpacity style={styles.closeBtn} onPress={onRequestClose} accessibilityLabel="Închide">
-          <Text style={styles.closeText}>×</Text>
+          <ThemedText style={styles.closeText}>×</ThemedText>
         </TouchableOpacity>
 
         <View style={styles.imageWrap}>
@@ -80,13 +81,13 @@ export default function ImageViewer(props: Props) {
 
         <View style={styles.controls}>
           <TouchableOpacity disabled={index <= 0} onPress={() => setIndex(Math.max(0, index - 1))} style={styles.navBtn}>
-            <Text style={[styles.navText, index <= 0 && styles.disabled]}>Prev</Text>
+            <ThemedText style={[styles.navText, index <= 0 && styles.disabled]}>Prev</ThemedText>
           </TouchableOpacity>
           {showCounter && (
-            <Text style={styles.counter}>{index + 1}/{images.length}</Text>
+            <ThemedText style={styles.counter}>{index + 1}/{images.length}</ThemedText>
           )}
           <TouchableOpacity disabled={index >= images.length - 1} onPress={() => setIndex(Math.min(images.length - 1, index + 1))} style={styles.navBtn}>
-            <Text style={[styles.navText, index >= images.length - 1 && styles.disabled]}>Next</Text>
+            <ThemedText style={[styles.navText, index >= images.length - 1 && styles.disabled]}>Next</ThemedText>
           </TouchableOpacity>
         </View>
       </View>
@@ -97,12 +98,12 @@ export default function ImageViewer(props: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' },
   closeBtn: { position: 'absolute', top: 20, right: 18, zIndex: 20 },
-  closeText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  closeText: { color: '#fff', fontSize: 32, lineHeight: 36, fontFamily: 'Poppins-Regular' },
   imageWrap: { width: '100%', height: '80%', alignItems: 'center', justifyContent: 'center' },
   image: { width: '100%', height: '100%' },
   controls: { position: 'absolute', bottom: 36, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 28, alignItems: 'center' },
   navBtn: { padding: 12 },
-  navText: { color: '#fff', fontSize: 16 },
+  navText: { color: '#fff', fontSize: 16, fontFamily: 'Poppins-Regular' },
   disabled: { opacity: 0.35 },
-  counter: { color: '#fff', fontSize: 14 },
+  counter: { color: '#fff', fontSize: 14, fontFamily: 'Poppins-Regular' },
 });

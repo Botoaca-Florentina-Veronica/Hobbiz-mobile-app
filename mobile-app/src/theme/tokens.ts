@@ -20,13 +20,14 @@ export const lightTokens = {
     overlayLight: 'rgba(0,0,0,0.4)', // lighter overlay variant
     placeholderBg: '#eeeeee', // generic light placeholder for images
     borderNeutral: '#8b8b8bff', // unified border color for both themes
+    turquoise: '#1abc9c', // accent turquoise used for reactivate button
   },
   radius: { sm: 6, md: 8, lg: 12, pill: 999 },
   spacing: { xs:4, sm:8, md:12, lg:16, xl:24 },
   shadow: {
     // Native shadow props for iOS/Android
-    elev1: { shadowColor:'#000', shadowOpacity:0.06, shadowRadius:4, shadowOffset:{width:0,height:2}, elevation:2, boxShadow: '0px 2px 4px rgba(0,0,0,0.06)' },
-    elev2: { shadowColor:'#000', shadowOpacity:0.12, shadowRadius:8, shadowOffset:{width:0,height:4}, elevation:4, boxShadow: '0px 4px 8px rgba(0,0,0,0.12)' },
+    elev1: { shadowColor:'#000', shadowOpacity:0.06, shadowRadius:4, shadowOffset:{width:0,height:2}, elevation:2 },
+    elev2: { shadowColor:'#000', shadowOpacity:0.12, shadowRadius:8, shadowOffset:{width:0,height:4}, elevation:4 },
   }
 };
 
@@ -52,6 +53,7 @@ export const darkTokens = {
     overlayLight: 'rgba(0,0,0,0.4)',
     placeholderBg: '#3a3a3a',  // dark placeholder surface
     borderNeutral: '#8b8b8bff', // unified border color for both themes
+    turquoise: '#5fd3e2ff', // accent turquoise used for reactivate button
   },
   radius: { sm: 6, md: 8, lg: 12, pill: 999 },
   spacing: { xs:4, sm:8, md:12, lg:16, xl:24 },

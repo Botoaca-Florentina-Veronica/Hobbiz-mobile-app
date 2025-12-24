@@ -1,37 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Linking } from 'react-native';
+import { ThemedText } from './themed-text';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useRouter } from 'expo-router';
- 
+import storage from '../src/services/storage';
+import { useLocale } from '../src/context/LocaleContext';
+
 interface LegalLink {
   label: string;
   url: string;
 }
- 
+
 interface LegalSection {
   title: string;
   links: LegalLink[];
 }
- 
-const legalSections: LegalSection[] = [
-  {
-    title: 'Legal',
-    links: [
-      { label: 'Termeni și condiții', url: '/termeni' },
-      { label: 'Politică de Confidențialitate', url: '/confidentialitate' },
-      { label: 'Cookie Policy', url: '/cookie' },
-    ],
-  },
-];
- 
+
+// Move labels into the component so they can depend on locale
+
 export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: boolean }) {
   const { tokens } = useAppTheme();
   const { width } = useWindowDimensions();
   const router = useRouter();
- 
+  const { locale } = useLocale();
+
+  const legalSections: LegalSection[] = [
+    {
+      title: locale === 'en' ? 'Legal' : 'Legal',
+      links: [
+        { label: locale === 'en' ? 'Terms and Conditions' : 'Termeni și condiții', url: '/termeni' },
+        { label: locale === 'en' ? 'Privacy Policy' : 'Politică de Confidențialitate', url: '/confidentialitate' },
+        { label: locale === 'en' ? 'Cookie Policy' : 'Cookie Policy', url: '/cookie' },
+        { label: locale === 'en' ? 'Data Deletion' : 'Ștergerea Datelor', url: '/data-deletion' },
+      ],
+    },
+  ];
+
   // Breakpoint pentru tablete și dispozitive mari (similar cu media query 900px)
   const isTabletOrLarger = width >= 768;
- 
+
   const handleLinkPress = (url: string) => {
     if (url === '/about') {
       router.push('/about');
@@ -42,20 +49,26 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
       router.push('/legal');
       return;
     }
+    if (url === '/data-deletion') {
+      router.push('/legal/data-deletion' as any);
+      return;
+    }
     if (url.startsWith('/')) {
       console.log('Internal route not yet implemented:', url);
       return;
     }
     Linking.openURL(url).catch(() => console.warn('Cannot open URL: ', url));
   };
- 
+
   const sectionsToRender = legalSections.filter((s) => !(hideLegalSection && s.title === 'Legal'));
- 
+
+  // Dacă toate secțiunile sunt ascunse (ex: pe pagina "Explorează"), nu randăm nimic
+  if (sectionsToRender.length === 0) {
+    return null;
+  }
+
   return (
-    <View style={[
-      styles.container,
-      { backgroundColor: tokens.colors.bg, paddingBottom: hideLegalSection ? 12 : styles.container.paddingBottom },
-    ]}>
+    <View style={[styles.container, { backgroundColor: tokens.colors.bg }]}>
       <View style={[styles.sectionsWrapper, isTabletOrLarger && styles.sectionsRow]}>
         {sectionsToRender.map((section, sectionIndex) => (
           <View 
@@ -66,9 +79,9 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
               !isTabletOrLarger && sectionIndex > 0 && styles.sectionSpacing,
             ]}
           >
-            <Text style={[styles.sectionTitle, { color: tokens.colors.text }]}>
+            <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>
               {section.title}
-            </Text>
+            </ThemedText>
             <View style={styles.linksList}>
               {section.links.map((link, linkIndex) => (
                 <TouchableOpacity
@@ -76,9 +89,9 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
                   onPress={() => handleLinkPress(link.url)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.linkText, { color: tokens.colors.muted }]}>
+                  <ThemedText style={[styles.linkText, { color: tokens.colors.muted }]}>
                     {link.label}
-                  </Text>
+                  </ThemedText>
                 </TouchableOpacity>
               ))}
             </View>
@@ -88,7 +101,7 @@ export default function LegalFooter({ hideLegalSection }: { hideLegalSection?: b
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -122,6 +135,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 42,
     marginBottom: 6,
+    fontFamily: 'Poppins-Bold',
   },
   linksList: {
     gap: 6,
@@ -129,5 +143,6 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: 17.92, // 1.12rem ≈ 17.92px
     marginBottom: 6,
+    fontFamily: 'Poppins-Regular',
   },
 });

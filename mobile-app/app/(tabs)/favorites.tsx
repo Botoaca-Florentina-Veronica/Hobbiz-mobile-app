@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ThemedText } from '../../components/themed-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
- 
+import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+
 interface Announcement {
   _id: string;
   title: string;
@@ -17,7 +19,7 @@ interface Announcement {
   createdAt: string;
   user?: { _id: string; firstName?: string; lastName?: string };
 }
- 
+
 export default function FavoritesScreen() {
   const { tokens, isDark } = useAppTheme();
   // Dark-mode palette (from attachment): use only these surface tints + pink primary and white for contrast
@@ -41,11 +43,11 @@ export default function FavoritesScreen() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
- 
+
   const [favorites, setFavorites] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
- 
+
   const fetchFavorites = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
@@ -62,17 +64,17 @@ export default function FavoritesScreen() {
       setLoading(false);
     }
   }, [isAuthenticated]);
- 
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchFavorites();
     setRefreshing(false);
   }, [fetchFavorites]);
- 
+
   useEffect(() => {
     fetchFavorites();
   }, [fetchFavorites]);
- 
+
   const handleRemoveFavorite = async (id: string) => {
     try {
       await api.delete(`/api/favorites/${id}`);
@@ -81,7 +83,7 @@ export default function FavoritesScreen() {
       console.error('Error removing favorite:', e);
     }
   };
- 
+
   const getImageSrc = (img?: string) => {
     if (!img) return null;
     if (img.startsWith('http')) return img;
@@ -91,33 +93,34 @@ export default function FavoritesScreen() {
     if (img.startsWith('uploads/')) return `${base}/${img}`;
     return `${base}/uploads/${img.replace(/^.*[\\\/]/, '')}`;
   };
- 
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.bg, paddingTop: insets.top }]}> 
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.muted }]}>Se încarcă favorite...</Text>
+        <ThemedText style={[styles.loadingText, { color: colors.muted }]}>Se încarcă favorite...</ThemedText>
       </View>
     );
   }
- 
+
   if (!isAuthenticated) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
         <Ionicons name="heart-outline" size={64} color={colors.placeholder} />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>Autentifică-te</Text>
-        <Text style={[styles.emptyMessage, { color: colors.muted }]}>Pentru a vedea anunțurile tale favorite</Text>
+        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>Autentifică-te</ThemedText>
+        <ThemedText style={[styles.emptyMessage, { color: colors.muted }]}>Pentru a vedea anunțurile tale favorite</ThemedText>
         <TouchableOpacity
           style={[styles.loginButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/login')}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>Mergi la autentificare</Text>
+          <ThemedText style={{ color: '#ffffff', fontWeight: '600' }}>Mergi la autentificare</ThemedText>
         </TouchableOpacity>
       </View>
     );
   }
- 
+
   return (
+    <ProtectedRoute>
     <View style={[styles.container, { backgroundColor: tokens.colors.bg }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12, backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
@@ -125,15 +128,15 @@ export default function FavoritesScreen() {
           <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Favorite</Text>
+          <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Favorite</ThemedText>
         </View>
       </View>
- 
+
       {/* Subtitle */}
       <View style={styles.subtitleContainer}>
-        <Text style={[styles.subtitle, { color: colors.text }]}>Anunțuri favorite ({favorites.length}/150)</Text>
+        <ThemedText style={[styles.subtitle, { color: colors.text }]}>Anunțuri favorite ({favorites.length}/150)</ThemedText>
       </View>
- 
+
       {/* List */}
       <ScrollView
         style={styles.scrollView}
@@ -143,8 +146,8 @@ export default function FavoritesScreen() {
         {favorites.length === 0 ? (
           <View style={styles.emptyState}>
             <Image source={require('../../assets/images/gumballSiDarwin.png')} style={styles.emptyImage} resizeMode="contain" />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Niciun anunț favorit</Text>
-            <Text style={[styles.emptyMessage, { color: colors.muted }]}>Știi ce înseamnă asta, e timpul să îți adaugi!</Text>
+            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>Niciun anunț favorit</ThemedText>
+            <ThemedText style={[styles.emptyMessage, { color: colors.muted }]}>Știi ce înseamnă asta, e timpul să îți adaugi!</ThemedText>
           </View>
         ) : (
           favorites.map((ann, index) => {
@@ -165,7 +168,7 @@ export default function FavoritesScreen() {
               ? [colors.primary as string, (colors as any).pink4 as string]  // pink gradient (#f51866 → #ff7e95)
               : [palette.g1, palette.g2];
             const textColor = isDark ? colors.text : palette.text;
- 
+
             return (
               <Pressable
                 key={ann._id}
@@ -199,16 +202,16 @@ export default function FavoritesScreen() {
                   )}
                 </View>
                 <View style={styles.squareContent}>
-                  <Text style={[styles.modernTitle, { color: textColor }]} numberOfLines={2}>{ann.title}</Text>
+                  <ThemedText style={[styles.modernTitle, { color: textColor }]} numberOfLines={2}>{ann.title}</ThemedText>
                   <View style={[styles.categoryBadgeModern, { 
                     backgroundColor: isDark ? 'rgba(245,24,102,0.15)' : 'rgba(255,255,255,0.55)',
                     borderWidth: isDark ? 1 : 0,
                     borderColor: isDark ? (colors as any).pink5 : 'transparent'
                   }]}>
-                    <Text style={[styles.categoryBadgeText, { color: isDark ? (colors as any).pink6 : textColor }]} numberOfLines={1}>{ann.category}</Text>
+                    <ThemedText style={[styles.categoryBadgeText, { color: isDark ? (colors as any).pink6 : textColor }]} numberOfLines={1}>{ann.category}</ThemedText>
                   </View>
-                  <Text style={[styles.modernSub, { color: textColor, opacity: 0.75 }]} numberOfLines={1}>{sellerName}</Text>
-                  <Text style={[styles.modernDate, { color: textColor, opacity: 0.55 }]}>Postat {new Date(ann.createdAt).toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                  <ThemedText style={[styles.modernSub, { color: textColor, opacity: 0.75 }]} numberOfLines={1}>{sellerName}</ThemedText>
+                  <ThemedText style={[styles.modernDate, { color: textColor, opacity: 0.55 }]}>Postat {new Date(ann.createdAt).toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' })}</ThemedText>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleRemoveFavorite(ann._id)}
@@ -223,9 +226,10 @@ export default function FavoritesScreen() {
         )}
       </ScrollView>
     </View>
+    </ProtectedRoute>
   );
 }
- 
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

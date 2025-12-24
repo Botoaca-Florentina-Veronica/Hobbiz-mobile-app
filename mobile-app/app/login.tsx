@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Alert, useWindowDimensions, ScrollView } from 'react-native';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useAppTheme } from '../src/context/ThemeContext';
@@ -134,9 +135,20 @@ export default function LoginScreen() {
     rawBase = '';
   }
   // Ensure we always have a usable base URL. Prefer the configured base, else public Render backend.
-  const baseURL = rawBase && typeof rawBase.replace === 'function'
+  const baseURL = (typeof rawBase === 'string' && rawBase)
     ? rawBase.replace(/\/+$/, '')
     : 'https://hobbiz-mui.onrender.com';
+
+      // Special case: on Web we should just redirect the current tab to the backend OAuth endpoint
+      if (Platform.OS === 'web') {
+        const webUrl = `${baseURL}/auth/google?state=web`;
+        try {
+          // @ts-ignore
+          if (typeof window !== 'undefined') window.location.href = webUrl;
+        } catch {}
+        setSocialLoading(false);
+        return;
+      }
 
       // Prepare redirect handler for iOS (fallback to explicit scheme if createURL not available)
       const redirectUrl = (Linking.createURL && typeof Linking.createURL === 'function')
@@ -145,7 +157,10 @@ export default function LoginScreen() {
       console.log('[OAuth] Redirect URL:', redirectUrl);
 
   // Include the actual redirect URL when initiating the backend OAuth so the callback can redirect back to this app
-  const authUrl = `${baseURL.replace(/\/+$/, '')}/auth/google?state=mobile&mobile=1&redirect=${encodeURIComponent(redirectUrl)}`;
+  const baseClean = (typeof baseURL === 'string' && (baseURL as any).replace)
+    ? baseURL.replace(/\/+$/, '')
+    : 'https://hobbiz-mui.onrender.com';
+  const authUrl = `${baseClean}/auth/google?state=mobile&mobile=1&redirect=${encodeURIComponent(redirectUrl)}`;
 
       console.log('[OAuth] Starting Google login...');
       console.log('[OAuth] Base URL:', baseURL);
@@ -253,7 +268,7 @@ export default function LoginScreen() {
           <ThemedText style={[styles.dividerText, { color: tokens.colors.muted }]}>SAU</ThemedText>
           <View style={[styles.divider, { borderColor: tokens.colors.border }]} />
         </View>
-        <TextInput
+        <ThemedTextInput
           style={[
             styles.input, 
             { 
@@ -272,7 +287,7 @@ export default function LoginScreen() {
           onChangeText={setEmail}
         />
         <View style={styles.passwordWrapper}>
-          <TextInput
+          <ThemedTextInput
             style={[
               styles.input, 
               styles.passwordInput, 

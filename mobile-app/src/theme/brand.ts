@@ -67,6 +67,9 @@ export const BrandColors = {
  * Typography scale matching web app
  */
 export const Typography = {
+  // Font family
+  fontFamily: 'Poppins-Regular',
+
   // Font sizes
   fontSize: {
     xs: 11,

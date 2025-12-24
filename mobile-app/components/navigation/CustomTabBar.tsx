@@ -1,20 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { ThemedText } from '../themed-text';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs/lib/typescript/src/types';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTabBar } from '../../src/context/TabBarContext';
 import { useChatNotifications } from '../../src/context/ChatNotificationContext';
+import storage from '../../src/services/storage';
+import { useLocale } from '../../src/context/LocaleContext';
+import { useRouter } from 'expo-router';
 
-// Map route name -> icon + label (adjust later as you add screens)
-const TAB_CONFIG: Record<string, { icon: string; label: string; special?: boolean }> = {
-  index: { icon: 'search', label: 'Explorează' },
-  favorites: { icon: 'heart-outline', label: 'Favorite' },
-  sell: { icon: 'pricetag', label: 'Vinde', special: true },
-  chat: { icon: 'chatbubble-ellipses-outline', label: 'Chat' },
-  account: { icon: 'person-circle-outline', label: 'Cont' },
+// Static icon config; labels will be provided via translations below
+const TAB_CONFIG: Record<string, { icon: string; label?: string; special?: boolean }> = {
+  index: { icon: 'search' },
+  favorites: { icon: 'heart-outline' },
+  sell: { icon: 'pricetag', special: true },
+  chat: { icon: 'chatbubble-ellipses-outline' },
+  account: { icon: 'person-circle-outline' },
+};
+
+const TAB_LABELS: Record<string, { ro: string; en: string }> = {
+  index: { ro: 'Explorează', en: 'Explore' },
+  favorites: { ro: 'Favorite', en: 'Favorites' },
+  sell: { ro: 'Vinde', en: 'Sell' },
+  chat: { ro: 'Chat', en: 'Chat' },
+  account: { ro: 'Cont', en: 'Account' },
 };
 
 export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
@@ -24,6 +36,8 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
   const { hidden } = useTabBar();
   const { unreadCount } = useChatNotifications();
   const insets = useSafeAreaInsets();
+  const { locale } = useLocale();
+  const router = useRouter();
   // Accent adapts to theme: dark uses brand pink, light keeps existing blue tone
   const activeColor = isDark ? tokens.colors.primary : '#355070';
   const inactiveColor = tokens.colors.muted;
@@ -68,11 +82,17 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
-          const config = TAB_CONFIG[route.name] || { icon: 'ellipse', label: route.name };
+          const base = TAB_CONFIG[route.name] || { icon: 'ellipse' };
+          const config = { ...base, label: (TAB_LABELS as any)[route.name]?.[locale] ?? route.name } as any;
           const onPress = () => {
-            // Dacă nu e autentificat și nu este tab-ul Explorează (index), redirecționează la login
+            // Dacă nu e autentificat și nu este tab-ul Explorează (index), redirecționează la login (folosim router.push pentru ruta absolută)
             if (!loading && !isAuthenticated && route.name !== 'index') {
-              navigation.navigate('login' as any);
+              try {
+                router.push('/login');
+              } catch (e) {
+                // fallback la navigation în caz că router nu funcționează (rare)
+                navigation.navigate('login' as any);
+              }
               return;
             }
             const event = navigation.emit({
@@ -124,13 +144,13 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
                 {/* Badge pentru mesaje necitite pe tab-ul chat */}
                 {route.name === 'chat' && unreadCount > 0 && (
                   <View style={[styles.badge, { backgroundColor: tokens.colors.primary }, (typeof document !== 'undefined' && webBox) ? { boxShadow: webBox } : undefined]}>
-                    <Text style={[styles.badgeText, { color: tokens.colors.primaryContrast }]}>
+                    <ThemedText style={[styles.badgeText, { color: tokens.colors.primaryContrast }]}>
                       {unreadCount > 99 ? '99+' : unreadCount}
-                    </Text>
+                    </ThemedText>
                   </View>
                 )}
               </View>
-              <Text
+              <ThemedText
                 style={[
                   styles.label,
                   config.special ? styles.labelSpecial : undefined,
@@ -138,7 +158,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
                 ]}
               >
                 {config.label}
-              </Text>
+              </ThemedText>
             </Pressable>
           );
         })}
@@ -171,6 +191,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     letterSpacing: 0.2,
+    fontFamily: 'Poppins-Regular',
   },
   labelSpecial: {
     marginTop: -6,
@@ -215,6 +236,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: -0.2,
+    fontFamily: 'Poppins-Bold',
   },
 });
 

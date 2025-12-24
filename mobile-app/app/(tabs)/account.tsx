@@ -6,31 +6,86 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
+import { useLocale } from '../../src/context/LocaleContext';
 import { Modal, Text } from 'react-native';
 import { useRouter } from 'expo-router';
+import storage from '../../src/services/storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { Toast } from '../../components/ui/Toast';
+
+const TRANSLATIONS = {
+  ro: {
+    profile: 'Profil',
+    greeting: 'Ceau',
+    user: 'Utilizator',
+    settings: 'Setări',
+    myAds: 'Anunțurile mele',
+    notifications: 'Notificări',
+    darkMode: 'Mod întunecat',
+    language: 'Limba',
+    aboutUs: 'Despre noi',
+    legalInfo: 'Informații legale',
+    logout: 'Ieși din cont',
+    logoutConfirmTitle: 'Ești sigur(ă) că vrei să te deconectezi?',
+    logoutConfirmMessage: 'Te poți reconecta oricând folosind datele tale.',
+    cancel: 'Anulează',
+    confirmLogout: 'Deconectează-te',
+    selectLanguage: 'Selectează limba',
+    selectLanguageMessage: 'Alege între Română și English.',
+    languageChanged: 'Limba a fost schimbată în Română',
+  },
+  en: {
+    profile: 'Profile',
+    greeting: 'Hey',
+    user: 'User',
+    settings: 'Settings',
+    myAds: 'My Announcements',
+    notifications: 'Notifications',
+    darkMode: 'Dark Mode',
+    language: 'Language',
+    aboutUs: 'About Us',
+    legalInfo: 'Legal Information',
+    logout: 'Log Out',
+    logoutConfirmTitle: 'Are you sure you want to log out?',
+    logoutConfirmMessage: 'You can log back in anytime using your credentials.',
+    cancel: 'Cancel',
+    confirmLogout: 'Log Out',
+    selectLanguage: 'Select Language',
+    selectLanguageMessage: 'Choose between Română and English.',
+    languageChanged: 'Language changed to English',
+  },
+};
 
 type RowSpec = { key: string; label: string; icon: string; action?: () => void; type?: 'switch' | 'danger' };
 
 export default function AccountScreen() {
   const { isDark, setMode, tokens } = useAppTheme();
+  const { locale, setLocale: setGlobalLocale } = useLocale();
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { logout, user } = useAuth();
   const [confirmVisible, setConfirmVisible] = React.useState(false);
+  const [languageModalOpen, setLanguageModalOpen] = React.useState(false);
+  const [toastVisible, setToastVisible] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState('');
+
+  const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
 
   const accountRows: RowSpec[] = [
-    { key: 'settings', label: 'Setări', icon: 'settings-outline', action: () => router.push('/settings') },
-    { key: 'my-ads', label: 'Anunțurile mele', icon: 'megaphone-outline', action: () => router.push('/my-announcements') },
-    { key: 'profile', label: 'Profil', icon: 'person-outline', action: () => router.push('/profile') },
-    { key: 'notifications', label: 'Notificări', icon: 'notifications-outline' },
-    { key: 'darkmode', label: 'Mod întunecat', icon: 'moon-outline', type: 'switch' },
+    { key: 'settings', label: t.settings, icon: 'settings-outline', action: () => router.push('/settings') },
+    { key: 'my-ads', label: t.myAds, icon: 'megaphone-outline', action: () => router.push('/my-announcements') },
+    // Deschide ecranul dedicat de setări notificări (meniul complet deja implementat)
+    { key: 'notifications', label: t.notifications, icon: 'notifications-outline', action: () => router.push('/notification-settings') },
+    { key: 'profile', label: t.profile, icon: 'person-outline', action: () => router.push('/profile') },
+    { key: 'darkmode', label: t.darkMode, icon: 'moon-outline', type: 'switch' },
+    { key: 'language', label: t.language, icon: 'language-outline', action: () => setLanguageModalOpen(true) },
   ];
 
   const infoRows: RowSpec[] = [
-    { key: 'about', label: 'Despre noi', icon: 'information-circle-outline', action: () => router.push('/about') },
-    { key: 'legal', label: 'Informații legale', icon: 'document-text-outline', action: () => router.push('/legal') },
+    { key: 'about', label: t.aboutUs, icon: 'information-circle-outline', action: () => router.push('/about') },
+    { key: 'legal', label: t.legalInfo, icon: 'document-text-outline', action: () => router.push('/legal') },
   ];
 
   // Combine primary and accent for a pleasing gradient (left: primary -> right: accent)
@@ -74,6 +129,7 @@ export default function AccountScreen() {
     : -insets.top + sunOverlap - (sunTopNudge as number);
 
   return (
+    <ProtectedRoute>
     <ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg }]}>      
       <ScrollView contentContainerStyle={[styles.scrollContent, { position: 'relative' }]} showsVerticalScrollIndicator={false}>
         {/* Decorative sun image stuck to the very top-right (overlaps status bar) but is part of scroll content so it will scroll away. */}
@@ -102,7 +158,7 @@ export default function AccountScreen() {
             >            
               <Ionicons name="arrow-back" size={24} color={palette.headerText} />
             </TouchableOpacity>
-            <ThemedText style={styles.headerTitle}>Profil</ThemedText>
+            <ThemedText style={styles.headerTitle}>{t.profile}</ThemedText>
           </View>
           {/* Greeting placed in the blue header. Name is pulled from user and colored yellow. */}
           <View style={styles.greetingContainer}>
@@ -111,15 +167,15 @@ export default function AccountScreen() {
                 - On larger devices: "Ceau <Prenume> <Nume>!" all on one line
             */}
             <ThemedText style={[styles.greetingText, { color: palette.headerText }]}>
-              Ceau{' '}
+              {t.greeting}{' '}
               {isPhone ? (
                 <>
-                  <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{firstName || 'Utilizator'}</ThemedText>
-                  {lastName ? <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{'\n'}{lastName}</ThemedText> : null}
+                  <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{firstName || t.user}</ThemedText>
+                  {lastName ? <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{' \n'}{lastName}</ThemedText> : null}
                   <ThemedText style={[styles.greetingText, { color: palette.headerText }]}>{'!'}</ThemedText>
                 </>
               ) : (
-                <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{(firstName || lastName) ? `${firstName} ${lastName}`.trim() : 'Utilizator'}!</ThemedText>
+                <ThemedText style={[styles.greetingText, { color: palette.nameAccent }]}>{(firstName || lastName) ? `${firstName} ${lastName}`.trim() : t.user}!</ThemedText>
               )}
             </ThemedText>
           </View>
@@ -147,7 +203,7 @@ export default function AccountScreen() {
           </View>
           
           <ThemedText style={[styles.userName, { color: tokens.colors.text }]}>
-            {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Utilizator'}
+            {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : t.user}
           </ThemedText>
           
           {user?.phone && (
@@ -197,7 +253,12 @@ export default function AccountScreen() {
                   </View>
                   <ThemedText style={[styles.rowLabel, { color: tokens.colors.text }]}>{r.label}</ThemedText>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={tokens.colors.muted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {r.key === 'language' && (
+                    <ThemedText style={{ color: tokens.colors.muted }}>{locale === 'en' ? 'English' : 'Română'}</ThemedText>
+                  )}
+                  <Ionicons name="chevron-forward" size={20} color={tokens.colors.muted} />
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -230,7 +291,7 @@ export default function AccountScreen() {
             style={styles.logoutTextContainer}
             onPress={() => setConfirmVisible(true)}
           >
-            <ThemedText style={[styles.logoutTextRed, { color: palette.danger }]}>Ieși din cont</ThemedText>
+            <ThemedText style={[styles.logoutTextRed, { color: palette.danger }]}>{t.logout}</ThemedText>
             <View style={[styles.logoutUnderline, { backgroundColor: palette.danger }]} />
           </TouchableOpacity>
         </View>
@@ -244,14 +305,14 @@ export default function AccountScreen() {
         >
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}> 
             <View style={[styles.modalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
-              <ThemedText style={[styles.modalTitle, { color: tokens.colors.text }]}>Ești sigur(ă) că vrei să te deconectezi?</ThemedText>
-              <ThemedText style={[styles.modalMessage, { color: tokens.colors.muted }]}>Te poți reconecta oricând folosind datele tale.</ThemedText>
+              <ThemedText style={[styles.modalTitle, { color: tokens.colors.text }]}>{t.logoutConfirmTitle}</ThemedText>
+              <ThemedText style={[styles.modalMessage, { color: tokens.colors.muted }]}>{t.logoutConfirmMessage}</ThemedText>
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnCancel]}
                   onPress={() => setConfirmVisible(false)}
                 >
-                  <Text style={{ color: tokens.colors.text }}>Anulează</Text>
+                  <ThemedText style={{ color: tokens.colors.text }}>{t.cancel}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnConfirm, { backgroundColor: palette.emphasisBg }]}
@@ -266,14 +327,70 @@ export default function AccountScreen() {
                     }
                   }}
                 >
-                  <Text style={{ color: '#ffffff' }}>Deconectează-te</Text>
+                  <ThemedText style={{ color: '#ffffff' }}>{t.confirmLogout}</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
+        {/* Language selector modal */}
+        <Modal
+          visible={languageModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLanguageModalOpen(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}> 
+            <View style={[styles.modalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
+              <TouchableOpacity style={styles.closeButton} onPress={() => setLanguageModalOpen(false)}>
+                <Ionicons name="close" size={20} color={tokens.colors.muted} />
+              </TouchableOpacity>
+              <ThemedText style={[styles.modalTitle, { color: tokens.colors.text }]}>{t.selectLanguage}</ThemedText>
+                <View style={{ marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { marginBottom: 8 }]}
+                    onPress={async () => {
+                      await setGlobalLocale('ro');
+                      setLanguageModalOpen(false);
+                      // Wait for modal close animation to complete before showing toast
+                      setTimeout(() => {
+                        setToastMessage(TRANSLATIONS.ro.languageChanged);
+                        setToastVisible(true);
+                      }, 300);
+                    }}
+                  >
+                    <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>Română</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { marginBottom: 8 }]}
+                    onPress={async () => {
+                      await setGlobalLocale('en');
+                      setLanguageModalOpen(false);
+                      // Wait for modal close animation to complete before showing toast
+                      setTimeout(() => {
+                        setToastMessage(TRANSLATIONS.en.languageChanged);
+                        setToastVisible(true);
+                      }, 300);
+                    }}
+                  >
+                    <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>English</ThemedText>
+                  </TouchableOpacity>
+                </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
+      
+      {/* Toast notification */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type="success"
+        duration={3000}
+        onHide={() => setToastVisible(false)}
+      />
     </ThemedView>
+    </ProtectedRoute>
   );
 }
 
@@ -319,7 +436,8 @@ const styles = StyleSheet.create({
   greetingText: 
   {
     fontSize: 40,
-    fontWeight: '800',
+    fontWeight: '900',
+    fontFamily: 'Poppins-Bold',
     lineHeight: 44,
   },
   profileCard: {
@@ -525,5 +643,15 @@ const styles = StyleSheet.create({
   },
   nightShift: {
     transform: [{ translateY: 8 }],
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { StyleSheet, View, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, StatusBar, FlatList, Text, TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../src/context/ThemeContext';
+import storage from '../src/services/storage';
 import { useAuth } from '../src/context/AuthContext';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import api from '../src/services/api';
+import { useLocale } from '../src/context/LocaleContext';
 import { Toast } from '../components/ui/Toast';
 import { localitatiPeJudet } from '../assets/comunePeJudet';
 
@@ -30,6 +33,7 @@ interface UserReview {
   comment: string;
   reviewerName: string;
   reviewerAvatar?: string;
+  reviewerId?: string;
   createdAt: string;
   likes?: any[]; // array of user IDs who liked
   unlikes?: any[]; // array of user IDs who unliked
@@ -59,6 +63,73 @@ export default function ProfileScreen() {
   const containerBorderStyle = { borderWidth: isDark ? 1 : 0, borderColor: tokens.colors.borderNeutral } as const;
   const { user, restore } = useAuth();
   const { userId } = useLocalSearchParams<{ userId?: string }>();
+  const { locale } = useLocale();
+
+  const TRANSLATIONS: Record<string, any> = {
+    ro: {
+      permissionTitle: 'Permisiune',
+      permissionGallery: 'Trebuie să permiți accesul la galerie pentru a schimba poza de profil.',
+      changeAvatarTitle: 'Schimbă poza de profil',
+      changeAvatarConfirm: 'Ești sigur că vrei să modifica poza de profil a contului?',
+      cancel: 'Anulează',
+      confirm: 'Confirmă',
+      avatarUpdated: 'Poza de profil a fost actualizată',
+      avatarUploadFailed: 'Nu s-a putut încărca poza. Încearcă din nou',
+      locationUpdated: 'Locația a fost actualizată',
+      locationUpdateFailed: 'Nu s-a putut actualiza locația. Încearcă din nou',
+      memberSince: 'Membru din',
+      myLocation: 'Locația mea',
+      changeLocation: 'Schimbă locația',
+      noLocationText: "Nu ți-ai setat încă locația, dc?",
+      contactInfo: 'Informații de Contact',
+      edit: 'Editează',
+      lastName: 'Nume',
+      firstName: 'Prenume',
+      phone: 'Telefon',
+      email: 'Email',
+      placeholderLastName: 'Introduceți numele',
+      placeholderFirstName: 'Introduceți prenumele',
+      placeholderPhone: 'Introduceți telefonul',
+      reviewsTitle: 'Rezultatul evaluării',
+      saveSuccess: 'Informațiile au fost actualizate',
+      saveInfo: 'Informațiile au fost actualizate',
+      saveFailed: 'Nu s-au putut actualiza informațiile. Încearcă din nou',
+      cancelBtn: 'Anulează',
+      saveBtn: 'Salvează'
+    },
+    en: {
+      permissionTitle: 'Permission',
+      permissionGallery: 'You need to allow gallery access to change your profile picture.',
+      changeAvatarTitle: 'Change profile picture',
+      changeAvatarConfirm: 'Are you sure you want to change your account profile picture?',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      avatarUpdated: 'Profile picture updated',
+      avatarUploadFailed: 'Could not upload the picture. Please try again',
+      locationUpdated: 'Location updated',
+      locationUpdateFailed: 'Could not update location. Please try again',
+      memberSince: 'Member since',
+      myLocation: 'My location',
+      changeLocation: 'Change location',
+      noLocationText: "You haven't set your location yet.",
+      contactInfo: 'Contact Information',
+      edit: 'Edit',
+      lastName: 'Last name',
+      firstName: 'First name',
+      phone: 'Phone',
+      email: 'Email',
+      placeholderLastName: 'Enter last name',
+      placeholderFirstName: 'Enter first name',
+      placeholderPhone: 'Enter phone number',
+      reviewsTitle: 'Review summary',
+      saveSuccess: 'Information updated',
+      saveInfo: 'Information updated',
+      saveFailed: 'Could not update information. Please try again',
+      cancelBtn: 'Cancel',
+      saveBtn: 'Save'
+    }
+  };
+  const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
   const [publicProfile, setPublicProfile] = React.useState<any | null>(null);
   const [loadingPublic, setLoadingPublic] = React.useState(false);
   const [currentAvatar, setCurrentAvatar] = React.useState<string | undefined>(undefined);
@@ -106,10 +177,10 @@ export default function ProfileScreen() {
       } catch (e) {
         console.warn('[Profile] restore failed after location update', e);
       }
-      showToast('Locația a fost actualizată', 'success');
+      showToast(t.locationUpdated, 'success');
     } catch (err) {
       console.error('Error updating location:', err);
-      showToast('Nu s-a putut actualiza locația. Încearcă din nou', 'error');
+      showToast(t.locationUpdateFailed, 'error');
     } finally {
       setLocationModalOpen(false);
       setCountyExpanded(null);
@@ -209,6 +280,10 @@ export default function ProfileScreen() {
             comment: r.comment || '',
             reviewerName: r.authorName || 'Utilizator',
             reviewerAvatar: r.authorAvatar,
+            reviewerId: (
+              (r.author && (typeof r.author === 'string' ? r.author : (r.author._id || r.author.id)))
+              || r.authorId || r.user || undefined
+            ) as any,
             createdAt: r.createdAt,
             likes: r.likes || [],
             unlikes: r.unlikes || [],
@@ -253,7 +328,7 @@ export default function ProfileScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permission.status !== 'granted') {
-        Alert.alert('Permisiune', 'Trebuie să permiți accesul la galerie pentru a schimba poza de profil.');
+        Alert.alert(t.permissionTitle, t.permissionGallery);
         return;
       }
 
@@ -265,12 +340,12 @@ export default function ProfileScreen() {
 
       // Ask for confirmation before uploading
       Alert.alert(
-        'Schimbă poza de profil',
-        'Ești sigur că vrei să modifica poza de profil a contului?',
+        t.changeAvatarTitle,
+        t.changeAvatarConfirm,
         [
-          { text: 'Anulează', style: 'cancel' },
+          { text: t.cancel, style: 'cancel' },
           {
-            text: 'Confirmă',
+            text: t.confirm,
             onPress: async () => {
               // proceed to upload
               const uri = asset.uri;
@@ -298,10 +373,10 @@ export default function ProfileScreen() {
                     console.warn('[Profile] failed to restore auth after avatar upload', e);
                   }
                 }
-                showToast('Poza de profil a fost actualizată', 'success');
+                showToast(t.avatarUpdated, 'success');
               } catch (err) {
                 console.error('Avatar upload error:', err);
-                showToast('Nu s-a putut încărca poza. Încearcă din nou', 'error');
+                showToast(t.avatarUploadFailed, 'error');
               } finally {
                 setAvatarUploading(false);
               }
@@ -319,7 +394,9 @@ export default function ProfileScreen() {
   const formatMemberDate = (dateStr?: string) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    const months = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+    const monthsRo = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+    const monthsEn = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const months = locale === 'en' ? monthsEn : monthsRo;
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
@@ -517,6 +594,8 @@ export default function ProfileScreen() {
     await setReviewReaction(reviewId, desired);
   };
 
+  const scrollStyle = Platform.OS === 'web' ? ({ height: '100vh' } as any) : { flex: 1 };
+
   return (
     <>
       <StatusBar 
@@ -525,7 +604,7 @@ export default function ProfileScreen() {
         translucent={true}
       />
       <ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }]}>      
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={scrollStyle} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header with back button and title */}
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -591,7 +670,7 @@ export default function ProfileScreen() {
             </ThemedText>
             
             <ThemedText style={[styles.registerDate, { color: tokens.colors.muted }]}>
-              Membru din {formatMemberDate(profileToShow?.createdAt)}
+              {t.memberSince} {formatMemberDate(profileToShow?.createdAt)}
             </ThemedText>
           </View>
         </View>
@@ -599,13 +678,18 @@ export default function ProfileScreen() {
         {/* My Location Section */}
         <View style={styles.locationSection}>
           <View style={styles.locationHeader}>
-            <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>Locația mea</ThemedText>
-            <TouchableOpacity onPress={() => { if (isViewingOwnProfile) setLocationModalOpen(true); }} activeOpacity={isViewingOwnProfile ? 0.7 : 1}>
-              <ThemedText style={[styles.specifyLink, { color: isViewingOwnProfile ? tokens.colors.muted : tokens.colors.muted }]}>Schimbă locația</ThemedText>
-            </TouchableOpacity>
+            <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>{t.myLocation}</ThemedText>
+            {isViewingOwnProfile && (
+              <TouchableOpacity onPress={() => setLocationModalOpen(true)} activeOpacity={0.7}>
+                <ThemedText style={[styles.specifyLink, { color: tokens.colors.muted }]}>{t.changeLocation}</ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
           
-          <View style={[styles.mapContainer, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.borderNeutral }]}>
+          <View style={[
+            styles.mapContainer,
+            { backgroundColor: profileToShow?.localitate ? tokens.colors.surface : (isDark ? '#121212' : '#ffffff'), borderColor: tokens.colors.borderNeutral }
+          ]}>
             {profileToShow?.localitate ? (
               (() => {
                 const encoded = encodeURIComponent(profileToShow.localitate);
@@ -675,7 +759,12 @@ export default function ProfileScreen() {
                 ) : (
                   <Ionicons name="map" size={48} color={tokens.colors.muted} />
                 )}
-                <ThemedText style={[styles.mapText, { color: tokens.colors.muted, marginTop: 8 }]}>Nu ți-ai setat încă locația, dc?</ThemedText>
+                <ThemedText style={[styles.mapText, { color: tokens.colors.muted, marginTop: 8 }]}>
+                  {isViewingOwnProfile
+                    ? t.noLocationText
+                    : (locale === 'en' ? "This user hasn't set their location yet." : 'Acest utilizator nu și-a setat încă locația')
+                  }
+                </ThemedText>
               </View>
             )}
             {/* map pin removed as requested */}
@@ -685,14 +774,14 @@ export default function ProfileScreen() {
         {/* Contact Info Dashboard */}
   <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
-            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Informații de Contact</ThemedText>
+            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>{t.contactInfo}</ThemedText>
             {isViewingOwnProfile && !isEditingContact && (
               <TouchableOpacity 
                 onPress={handleStartEdit}
-                style={[styles.editButton, { backgroundColor:  'rgba(0, 0, 0, 0.00)', borderColor: tokens.colors.primary, borderWidth: 1 }]}
+                style={[styles.editButton, { backgroundColor: 'rgba(0,0,0,0)', borderColor: tokens.colors.primary, borderWidth: 1, marginLeft: 'auto' }]}
                 activeOpacity={0.8}
               >
-                <ThemedText style={[styles.editButtonText, { color: tokens.colors.primary }]}>Editează</ThemedText>
+                <ThemedText style={[styles.editButtonText, { color: tokens.colors.primary }]}>{t.edit}</ThemedText>
               </TouchableOpacity>
             )}
           </View>
@@ -702,13 +791,13 @@ export default function ProfileScreen() {
             <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="person-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
-                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Nume</ThemedText>
+                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>{t.lastName}</ThemedText>
                 {isEditingContact ? (
-                  <TextInput
+                  <ThemedTextInput
                     value={editLastName}
                     onChangeText={setEditLastName}
                     style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
-                    placeholder="Introduceți numele"
+                    placeholder={t.placeholderLastName}
                     placeholderTextColor={tokens.colors.placeholder}
                   />
                 ) : (
@@ -723,13 +812,13 @@ export default function ProfileScreen() {
             <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="person-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
-                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Prenume</ThemedText>
+                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>{t.firstName}</ThemedText>
                 {isEditingContact ? (
-                  <TextInput
+                  <ThemedTextInput
                     value={editFirstName}
                     onChangeText={setEditFirstName}
                     style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
-                    placeholder="Introduceți prenumele"
+                    placeholder={t.placeholderFirstName}
                     placeholderTextColor={tokens.colors.placeholder}
                   />
                 ) : (
@@ -744,13 +833,13 @@ export default function ProfileScreen() {
             <View style={[styles.infoItem, { borderColor: tokens.colors.borderNeutral }]}> 
               <Ionicons name="call-outline" size={18} color={tokens.colors.primary} />
               <View style={styles.infoItemContent}>
-                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>Telefon</ThemedText>
+                <ThemedText style={[styles.infoItemLabel, { color: tokens.colors.muted }]}>{t.phone}</ThemedText>
                 {isEditingContact ? (
-                  <TextInput
+                  <ThemedTextInput
                     value={editPhone}
                     onChangeText={setEditPhone}
                     style={[styles.editInput, { color: tokens.colors.text, borderColor: tokens.colors.borderNeutral }]}
-                    placeholder="Introduceți telefonul"
+                    placeholder={t.placeholderPhone}
                     placeholderTextColor={tokens.colors.placeholder}
                     keyboardType="phone-pad"
                   />
@@ -782,7 +871,7 @@ export default function ProfileScreen() {
                 style={[styles.actionButton, styles.cancelButton, { borderColor: tokens.colors.borderNeutral }]}
                 activeOpacity={0.8}
               >
-                <ThemedText style={[styles.actionButtonText, { color: tokens.colors.text }]}>Anulează</ThemedText>
+                <ThemedText style={[styles.actionButtonText, { color: tokens.colors.text }]}>{t.cancelBtn}</ThemedText>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -794,7 +883,7 @@ export default function ProfileScreen() {
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <ThemedText style={[styles.actionButtonText, { color: '#fff' }]}>Salvează</ThemedText>
+                  <ThemedText style={[styles.actionButtonText, { color: '#fff' }]}>{t.saveBtn}</ThemedText>
                 )}
               </TouchableOpacity>
             </View>
@@ -804,7 +893,7 @@ export default function ProfileScreen() {
         {/* Reviews Dashboard */}
   <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
-            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Rezultatul evaluării</ThemedText>
+            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>{t.reviewsTitle}</ThemedText>
           </View>
 
           {reviewsLoading ? (
@@ -816,9 +905,9 @@ export default function ProfileScreen() {
               {/* Rating Summary */}
               <View style={styles.ratingsSummary}>
                 <View style={styles.ratingsLeft}>
-                  <Text style={[styles.ratingScore, { color: tokens.colors.text }]}>
+                  <ThemedText style={[styles.ratingScore, { color: tokens.colors.text }]}>
                     {reviewStats.averageRating.toFixed(1)}
-                  </Text>
+                  </ThemedText>
                   <View style={styles.starsRow}>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Ionicons
@@ -829,9 +918,9 @@ export default function ProfileScreen() {
                       />
                     ))}
                   </View>
-                  <Text style={[styles.reviewCount, { color: tokens.colors.muted }]}>
+                  <ThemedText style={[styles.reviewCount, { color: tokens.colors.muted }]}>
                     {reviewStats.totalReviews} review{reviewStats.totalReviews !== 1 ? 's' : ''}
-                  </Text>
+                  </ThemedText>
                 </View>
 
                 {/* Rating Distribution Bars */}
@@ -844,9 +933,9 @@ export default function ProfileScreen() {
                     
                     return (
                       <View key={rating} style={styles.ratingBar}>
-                        <Text style={[styles.ratingLabel, { color: tokens.colors.text }]}>
+                        <ThemedText style={[styles.ratingLabel, { color: tokens.colors.text }]}>
                           {rating} ★
-                        </Text>
+                        </ThemedText>
                         <View style={[styles.barBackground, { backgroundColor: tokens.colors.borderNeutral }]}>
                           <View 
                             style={[
@@ -858,9 +947,9 @@ export default function ProfileScreen() {
                             ]} 
                           />
                         </View>
-                        <Text style={[styles.ratingCount, { color: tokens.colors.muted }]}>
+                        <ThemedText style={[styles.ratingCount, { color: tokens.colors.muted }]}>
                           {count}
-                        </Text>
+                        </ThemedText>
                       </View>
                     );
                   })}
@@ -888,25 +977,33 @@ export default function ProfileScreen() {
                                 <Ionicons name="person" size={20} color={tokens.colors.primary} />
                               </View>
                             )}
-                            <View style={styles.reviewerDetails}>
-                              <Text style={[styles.reviewerName, { color: tokens.colors.text }]}>
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={() => {
+                                if (review.reviewerId) {
+                                  try { router.push(`/profile?userId=${encodeURIComponent(String(review.reviewerId))}`); } catch (e) { /* ignore */ }
+                                }
+                              }}
+                              style={styles.reviewerDetails}
+                            >
+                              <ThemedText style={[styles.reviewerName, { color: tokens.colors.text }]}> 
                                 {review.reviewerName}
-                              </Text>
-                              <Text style={[styles.reviewDate, { color: tokens.colors.muted }]}>
+                              </ThemedText>
+                              <ThemedText style={[styles.reviewDate, { color: tokens.colors.muted }]}>
                                 {formattedDate}
-                              </Text>
-                            </View>
+                              </ThemedText>
+                            </TouchableOpacity>
                           </View>
                           <View style={[styles.reviewRatingBadge, { backgroundColor: tokens.colors.rating }]}>
-                            <Text style={[styles.reviewRatingText, { color: tokens.colors.text }]}>
+                            <ThemedText style={[styles.reviewRatingText, { color: tokens.colors.text }]}>
                               {review.rating.toFixed(1)}
-                            </Text>
+                            </ThemedText>
                           </View>
                         </View>
                         
-                        <Text style={[styles.reviewComment, { color: tokens.colors.text }]}>
+                        <ThemedText style={[styles.reviewComment, { color: tokens.colors.text }]}>
                           {review.comment}
-                        </Text>
+                        </ThemedText>
                         
                         {/* Like/Unlike buttons */}
                         <View style={[styles.reviewFooter, { borderTopColor: tokens.colors.borderNeutral }]}>
@@ -926,7 +1023,7 @@ export default function ProfileScreen() {
                                     : tokens.colors.muted
                                 }
                               />
-                              <Text style={[
+                              <ThemedText style={[
                                 styles.actionCount, 
                                 { 
                                   color: reviewLikeState[review._id]?.liked 
@@ -935,7 +1032,7 @@ export default function ProfileScreen() {
                                 }
                               ]}>
                                 {review.likesCount || 0}
-                              </Text>
+                              </ThemedText>
                             </TouchableOpacity>
 
                             {/* Unlike button */}
@@ -953,7 +1050,7 @@ export default function ProfileScreen() {
                                     : tokens.colors.muted
                                 }
                               />
-                              <Text style={[
+                              <ThemedText style={[
                                 styles.actionCount, 
                                 { 
                                   color: reviewLikeState[review._id]?.unliked 
@@ -962,7 +1059,7 @@ export default function ProfileScreen() {
                                 }
                               ]}>
                                 {review.unlikesCount || 0}
-                              </Text>
+                              </ThemedText>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -975,13 +1072,15 @@ export default function ProfileScreen() {
                     <TouchableOpacity 
                       style={[styles.viewAllButton, { borderColor: tokens.colors.primary }]}
                       onPress={() => {
-                        // TODO: Navigate to all reviews page
-                        Alert.alert('Info', 'Navigare către toate review-urile');
+                        router.push({ 
+                          pathname: '/all-reviews', 
+                          params: { userId: userId || user?.id } 
+                        });
                       }}
                     >
-                      <Text style={[styles.viewAllText, { color: tokens.colors.primary }]}>
+                      <ThemedText style={[styles.viewAllText, { color: tokens.colors.primary }]}>
                         TOATE COMENTARIILE
-                      </Text>
+                      </ThemedText>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -989,10 +1088,8 @@ export default function ProfileScreen() {
             </>
           ) : (
             <View style={styles.noReviewsContainer}>
-              <Image source={require('../assets/images/gumballCrying.png')} style={styles.noReviewsImage} resizeMode="contain" />
-              <Text style={[styles.noReviewsText, { color: tokens.colors.muted }]}>
-                Nu există încă review-uri
-              </Text>
+              <Ionicons name="star" size={56} color={tokens.colors.muted} style={{ marginBottom: 8 }} />
+              <ThemedText style={[styles.noReviewsText, { color: tokens.colors.muted }]}>Nu există încă review-uri</ThemedText>
             </View>
           )}
         </View>
@@ -1000,8 +1097,24 @@ export default function ProfileScreen() {
         {/* Announcements Dashboard */}
   <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
           <View style={styles.dashboardHeader}>
-            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>Anunțurile Mele</ThemedText>
-            <TouchableOpacity onPress={() => router.push('/my-announcements')}>
+            <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>
+              {isViewingOwnProfile
+                ? 'Anunțurile Mele'
+                : `Anunțurile postate de ${((publicProfile?.firstName || '') + ' ' + (publicProfile?.lastName || '')).trim() || 'utilizator'}`}
+            </ThemedText>
+            <TouchableOpacity 
+              onPress={() => {
+                if (isViewingOwnProfile) {
+                  router.push('/my-announcements');
+                } else {
+                  router.push({
+                    pathname: '/user-announcements',
+                    params: { userId: userId }
+                  });
+                }
+              }}
+              style={{ marginLeft: 'auto', padding: 6 }}
+            >
               <Ionicons name="arrow-forward" size={20} color={tokens.colors.muted} />
             </TouchableOpacity>
           </View>
@@ -1037,9 +1150,9 @@ export default function ProfileScreen() {
           ) : userAnnouncements.length === 0 ? (
             <View style={styles.emptyAnnouncementsContainer}>
               <Ionicons name="albums-outline" size={40} color={tokens.colors.placeholder} />
-              <Text style={[styles.emptyAnnouncementsText, { color: tokens.colors.muted }]}>
+              <ThemedText style={[styles.emptyAnnouncementsText, { color: tokens.colors.muted }]}>
                 Nu ai încă anunțuri postate
-              </Text>
+              </ThemedText>
             </View>
           ) : (
             <FlatList
@@ -1048,6 +1161,8 @@ export default function ProfileScreen() {
               showsHorizontalScrollIndicator={false}
               keyExtractor={(item) => item._id}
               contentContainerStyle={styles.announcementsList}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
               renderItem={({ item }) => {
                 const imageUri = item.images?.[0] ? getImageSrc(item.images[0]) : null;
                 return (
@@ -1063,19 +1178,19 @@ export default function ProfileScreen() {
                       style={[styles.announcementImage, { backgroundColor: tokens.colors.placeholderBg }]}
                     />
                     <View style={styles.announcementInfo}>
-                      <Text 
+                      <ThemedText 
                         numberOfLines={2} 
                         style={[styles.announcementTitle, { color: tokens.colors.text }]}
                       >
                         {item.title}
-                      </Text>
-                      <Text 
+                      </ThemedText>
+                      <ThemedText 
                         numberOfLines={1} 
                         style={[styles.announcementLocation, { color: tokens.colors.muted }]}
                       >
                         <Ionicons name="location-outline" size={12} color={tokens.colors.muted} />
                         {' '}{item.location || 'Nedefinit'}
-                      </Text>
+                      </ThemedText>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1340,13 +1455,14 @@ const styles = StyleSheet.create({
   },
   dashboardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginBottom: 16,
   },
   dashboardTitle: {
     fontSize: 16,
     fontWeight: '700',
+    flexShrink: 1,
   },
   
   // Info Grid
@@ -1475,10 +1591,11 @@ const styles = StyleSheet.create({
   emptyAnnouncementsText: {
     fontSize: 14,
     textAlign: 'center',
+    fontFamily: 'Poppins-Regular',
   },
   announcementsList: {
     paddingVertical: 16,
-    gap: 2,
+    paddingHorizontal: 4,
   },
   announcementCard: {
     width: 150,
@@ -1531,6 +1648,7 @@ const styles = StyleSheet.create({
   noReviewsText: {
     fontSize: 14,
     textAlign: 'center',
+    fontFamily: 'Poppins-Regular',
   },
   ratingsSummary: {
     flexDirection: 'row',
@@ -1546,6 +1664,7 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '700',
     marginBottom: 4,
+    fontFamily: 'Poppins-Bold',
   },
   starsRow: {
     flexDirection: 'row',
@@ -1554,6 +1673,7 @@ const styles = StyleSheet.create({
   },
   reviewCount: {
     fontSize: 11,
+    fontFamily: 'Poppins-Regular',
   },
   ratingsRight: {
     flex: 1,
@@ -1567,6 +1687,7 @@ const styles = StyleSheet.create({
   ratingLabel: {
     fontSize: 11,
     width: 30,
+    fontFamily: 'Poppins-Regular',
   },
   barBackground: {
     flex: 1,
@@ -1582,6 +1703,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     width: 20,
     textAlign: 'right',
+    fontFamily: 'Poppins-Regular',
   },
   recentReviewsSection: {
     gap: 12,
@@ -1621,9 +1743,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 2,
+    fontFamily: 'Poppins-SemiBold',
   },
   reviewDate: {
     fontSize: 11,
+    fontFamily: 'Poppins-Regular',
   },
   reviewRatingBadge: {
     paddingHorizontal: 8,
@@ -1637,11 +1761,13 @@ const styles = StyleSheet.create({
   reviewRatingText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
   },
   reviewComment: {
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
+    fontFamily: 'Poppins-Regular',
   },
   reviewFooter: {
     flexDirection: 'row',
@@ -1664,9 +1790,11 @@ const styles = StyleSheet.create({
   actionCount: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Poppins-Medium',
   },
   reviewLikes: {
     fontSize: 11,
+    fontFamily: 'Poppins-Regular',
   },
   viewAllButton: {
     marginTop: 8,
@@ -1680,14 +1808,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
+    fontFamily: 'Poppins-Bold',
   },
   // Location picker modal styles
   categoryOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, justifyContent: 'flex-end' },
   categorySheet: { maxHeight: '75%', borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, overflow: 'hidden' },
   categoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  categoryHeaderTitle: { fontSize: 16, fontWeight: '600' },
+  categoryHeaderTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Poppins-SemiBold' },
   closeBtn: { padding: 6, borderRadius: 8 },
   categoryList: { },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  categoryLabel: { fontSize: 15, fontWeight: '500' },
+  categoryLabel: { fontSize: 15, fontWeight: '500', fontFamily: 'Poppins-Medium' },
 });

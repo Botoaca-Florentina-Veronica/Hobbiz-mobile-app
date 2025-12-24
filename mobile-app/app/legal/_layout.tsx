@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { Slot } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ export default function LegalLayout() {
 	const { tokens } = useAppTheme();
 	const insets = useSafeAreaInsets();
 	return (
-		<ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }]}>
+		<ThemedView style={[styles.container, { backgroundColor: tokens.colors.bg, paddingTop: insets.top }, Platform.OS === 'web' && { height: '100vh' as any }]}>
 			<Slot />
 		</ThemedView>
 	);

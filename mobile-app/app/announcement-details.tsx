@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Platform, Modal, Share, TextInput } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedTextInput } from '@/components/themed-text-input';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '../src/context/ThemeContext';
@@ -30,6 +33,7 @@ export default function AnnouncementDetailsScreen() {
   const { tokens, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
 
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +57,8 @@ export default function AnnouncementDetailsScreen() {
   const width = Dimensions.get('window').width;
   const isLarge = width >= 768;
   const imageScrollRef = useRef<ScrollView | null>(null);
-  const containerWidth = Math.max(0, width - 32); // account for imageCardWrapper marginHorizontal:16
+  // Use full screen width for the image carousel to match preview page
+  const containerWidth = width;
 
   // Memoize the viewer header to prevent recreating it on every render (which causes page reload effect)
   const viewerHeaderComponent = useCallback(() => (
@@ -95,7 +100,14 @@ export default function AnnouncementDetailsScreen() {
   }, [fetchAnnouncement]);
 
   // Ascund header-ul implicit al navigatorului (evit bara neagră de sus)
-  // (Nota: cu expo-router, nu mai trebuie apelat navigation.setOptions)
+  useEffect(() => {
+    try {
+      // @ts-ignore
+      navigation.setOptions?.({ headerShown: false });
+    } catch (e) {
+      // nu blochează execuția dacă nu e disponibil
+    }
+  }, [navigation]);
 
   // Nu mai avem nevoie de geocodare sau MapView nativ — folosim iframe Google Maps pe toate platformele (funcționează în Expo Go)
 
@@ -187,6 +199,7 @@ export default function AnnouncementDetailsScreen() {
         announcementOwnerFirstName: announcement?.user?.firstName || '',
         announcementOwnerLastName: announcement?.user?.lastName || '',
         announcementOwnerAvatar: announcement?.user?.avatar || '',
+        announcementImage: getImageSrc(images[0]) || null,
         announcementId: String(announcement._id),
         announcementTitle: announcement.title || '',
       } as any;
@@ -216,7 +229,7 @@ export default function AnnouncementDetailsScreen() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: tokens.colors.bg, paddingTop: insets.top + 40 }]}>        
         <ActivityIndicator size="large" color={tokens.colors.primary} />
-        <Text style={[styles.loadingMessage, { color: tokens.colors.muted, marginTop: 12 }]}>Se încarcă anunțul...</Text>
+        <ThemedText style={[styles.loadingMessage, { color: tokens.colors.muted, marginTop: 12 }]}>Se încarcă anunțul...</ThemedText>
       </View>
     );
   }
@@ -227,17 +240,20 @@ export default function AnnouncementDetailsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
           <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.errorTitle, { color: tokens.colors.text }]}>Eroare</Text>
-        <Text style={[styles.errorMessage, { color: tokens.colors.muted }]}>{fetchError || 'Anunțul nu a fost găsit.'}</Text>
+        <ThemedText style={[styles.errorTitle, { color: tokens.colors.text }]}>Eroare</ThemedText>
+        <ThemedText style={[styles.errorMessage, { color: tokens.colors.muted }]}>{fetchError || 'Anunțul nu a fost găsit.'}</ThemedText>
         <TouchableOpacity onPress={fetchAnnouncement} style={[styles.retryBtn, { backgroundColor: tokens.colors.primary }]}>          
-          <Text style={styles.retryText}>Reîncearcă</Text>
+          <ThemedText style={styles.retryText}>Reîncearcă</ThemedText>
         </TouchableOpacity>
       </View>
     );
   }
 
+  const scrollStyle: any = Platform.OS === 'web' ? { height: '100vh' } : { flex: 1 };
+
   return (
-    <ScrollView style={{ backgroundColor: tokens.colors.bg }} contentContainerStyle={{ paddingBottom: 16 }}>
+    <View style={{ flex: 1, backgroundColor: tokens.colors.bg }}>
+      <ScrollView style={scrollStyle} contentContainerStyle={{ paddingBottom: 16 }}>
       {/* Header: circular back button + 'înapoi' text on left, placeholder right for balance */}
       <View style={[styles.headerSpacer, { paddingTop: insets.top + 12 }]}>        
         <View style={[styles.headerRow, { alignItems: 'center' }]}>
@@ -249,7 +265,7 @@ export default function AnnouncementDetailsScreen() {
             >
               <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.backText, { color: tokens.colors.text, marginLeft: 12 }]}>înapoi</Text>
+            <ThemedText style={[styles.backText, { color: tokens.colors.text, marginLeft: 12 }]}>înapoi</ThemedText>
           </View>
 
           {/* Placeholder to keep layout balanced */}
@@ -288,49 +304,41 @@ export default function AnnouncementDetailsScreen() {
 
         {/* Left / Right nav buttons positioned near image edges (overlay) */}
         {images.length > 1 && (
-          <>
-            <TouchableOpacity
-              onPress={() => {
-                const newIndex = imgIndex > 0 ? imgIndex - 1 : images.length - 1;
-                setImgIndex(newIndex);
-                imageScrollRef.current?.scrollTo({ x: newIndex * width, animated: true });
-              }}
-              style={[
-                styles.navBtnLeft,
-                { borderColor: tokens.colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.9)'}
-              ]}
-            >
-              <Ionicons name="chevron-back" size={22} color={tokens.colors.text} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                const newIndex = imgIndex < images.length - 1 ? imgIndex + 1 : 0;
-                setImgIndex(newIndex);
-                imageScrollRef.current?.scrollTo({ x: newIndex * width, animated: true });
-              }}
-              style={[
-                styles.navBtnRight,
-                { borderColor: tokens.colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.9)'}
-              ]}
-            >
-              <Ionicons name="chevron-forward" size={22} color={tokens.colors.text} />
-            </TouchableOpacity>
-
-            <View
-              style={[styles.carouselCounter, Platform.OS === 'web' ? { pointerEvents: 'none' } : undefined]}
-              {...(Platform.OS !== 'web' ? { pointerEvents: 'none' } : {})}
-            >
-              <View style={[styles.carouselCounterBubble, { backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.9)' }]}>
-                <Text style={[styles.counter, { color: isDark ? '#000' : '#000' }]}>{imgIndex + 1} / {images.length}</Text>
-              </View>
+          <View
+            style={[styles.carouselCounter, Platform.OS === 'web' ? { pointerEvents: 'none' } : undefined]}
+            {...(Platform.OS !== 'web' ? { pointerEvents: 'none' } : {})}
+          >
+            <View style={styles.paginationDotsRow}>
+              {images.map((_: any, i: number) => (
+                <View
+                  key={`dot-${i}`}
+                  style={{
+                    height: 8,
+                    borderRadius: 4,
+                    marginHorizontal: 4,
+                    backgroundColor: i === imgIndex ? tokens.colors.primary : 'rgba(255,255,255,0.5)',
+                    width: i === imgIndex ? 24 : 8,
+                  }}
+                />
+              ))}
             </View>
-          </>
+          </View>
         )}
       </View>
 
+      {/* Title placed above the main card to match preview layout */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+        <ThemedText style={[styles.title, { color: tokens.colors.text }]}>{announcement.title}</ThemedText>
+      </View>
+
+      <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+        <View style={[styles.categoryBadge, { backgroundColor: isDark ? tokens.colors.elev : tokens.colors.surface }]}>            
+          <ThemedText style={[styles.categoryText, { color: tokens.colors.primary }]}>{announcement.category}</ThemedText>
+        </View>
+      </View>
+
       {/* Main Card */}
-      <View style={[styles.mainCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>        
+      <View style={[styles.mainCard, { backgroundColor: isDark ? '#121212' : '#ffffff', borderColor: tokens.colors.border }]}>        
         {/* Action buttons (favorite, share) top-right */}
         <View style={styles.cardActions}>
           <TouchableOpacity
@@ -374,28 +382,29 @@ export default function AnnouncementDetailsScreen() {
             <Ionicons name="share-social" size={24} color={tokens.colors.primary} />
           </TouchableOpacity>
         </View>
-        <Text style={[styles.postedAt, { color: tokens.colors.muted }]}>Postat {new Date(announcement.createdAt).toLocaleDateString('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
-        <Text style={[styles.title, { color: tokens.colors.text }]}>{announcement.title}</Text>
-        <View style={styles.badgeRow}>          
-          <View style={[styles.categoryBadge, { backgroundColor: tokens.colors.elev }]}>            
-            <Text style={[styles.categoryText, { color: tokens.colors.primary }]}>{announcement.category}</Text>
-          </View>
-        </View>
-        <Text style={[styles.sectionHeading, { color: tokens.colors.text }]}>Descriere</Text>
-        <Text style={[styles.description, { color: tokens.colors.muted }]}>{announcement.description}</Text>
+        <ThemedText style={[styles.postedAt, { color: tokens.colors.muted }]}>Postat {new Date(announcement.createdAt).toLocaleDateString('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' })}</ThemedText>
+        
+        <ThemedText style={[styles.sectionHeading, { color: isDark ? '#ffffff' : '#000000' }]}>Descriere</ThemedText>
+        <ThemedText style={[styles.description, { color: isDark ? '#ffffff' : '#000000' }]}>{announcement.description}</ThemedText>
         <View style={[styles.divider, { borderBottomColor: tokens.colors.border }]} />
         <View style={styles.metaRow}>          
-          <Text style={[styles.metaItem, { color: tokens.colors.muted }]}>ID: {announcement._id.slice(-8)}</Text>
-          {!!announcement.views && <Text style={[styles.metaItem, { color: tokens.colors.muted }]}>{announcement.views} vizualizări</Text>}
+          <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>ID: {announcement._id.slice(-8)}</ThemedText>
+          {!!announcement.views && <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>{announcement.views} vizualizări</ThemedText>}
         </View>
       </View>
 
       {/* Seller Card */}
-      <View style={[styles.sellerCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>        
-        <Text style={[styles.sellerHeading, { color: tokens.colors.text }]}>Informații vânzător</Text>
+      <View style={[styles.sellerCard, { backgroundColor: isDark ? '#121212' : '#ffffff', borderColor: tokens.colors.border }]}>        
+        <ThemedText style={[styles.sellerHeading, { color: tokens.colors.text }]}>Informații vânzător</ThemedText>
 
-        {/* Avatar + Name + Rating */}
-        <View style={styles.sellerTopRow}>
+        {/* Avatar + Name + Rating (tap to open seller profile) */}
+        <TouchableOpacity
+          onPress={goToProfile}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Deschide profilul vânzătorului"
+          style={styles.sellerTopRow}
+        >
           <View style={[styles.avatar, { backgroundColor: tokens.colors.elev, overflow: 'hidden' }]}>            
             {announcement.user?.avatar ? (
               <Image
@@ -404,11 +413,11 @@ export default function AnnouncementDetailsScreen() {
                 resizeMode="cover"
               />
             ) : (
-              <Text style={[styles.avatarText, { color: tokens.colors.text }]}>{initials()}</Text>
+              <ThemedText style={[styles.avatarText, { color: tokens.colors.text }]}>{initials()}</ThemedText>
             )}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.sellerName, { color: tokens.colors.text }]}>{announcement.user?.firstName} {announcement.user?.lastName}</Text>
+            <ThemedText style={[styles.sellerName, { color: tokens.colors.text }]}>{announcement.user?.firstName} {announcement.user?.lastName}</ThemedText>
             {rating > 0 && reviewCount > 0 ? (
               <View style={styles.ratingRow}>
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -419,25 +428,25 @@ export default function AnnouncementDetailsScreen() {
                     color="#FFC107"
                   />
                 ))}
-                <Text style={[styles.ratingValue, { color: tokens.colors.text }]}>{Number(rating).toFixed(1)}</Text>
-                <Text style={[styles.ratingCount, { color: tokens.colors.muted }]}>({reviewCount} recenzii)</Text>
+                <ThemedText style={[styles.ratingValue, { color: tokens.colors.text }]}>{Number(rating).toFixed(1)}</ThemedText>
+                <ThemedText style={[styles.ratingCount, { color: tokens.colors.muted }]}>({reviewCount} recenzii)</ThemedText>
               </View>
             ) : (
               sellerReviewsLoading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator size="small" color={tokens.colors.primary} />
-                  <Text style={[styles.sellerSub, { color: tokens.colors.muted }]}>se încarcă recenziile...</Text>
+                  <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>se încarcă recenziile...</ThemedText>
                 </View>
               ) : (
-                <Text style={[styles.sellerSub, { color: tokens.colors.muted }]}>nu există review-uri</Text>
+                <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>nu există review-uri</ThemedText>
               )
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Contact label + Evaluate button */}
         <View style={styles.contactTopRow}>
-          <Text style={[styles.contactLabel, { color: tokens.colors.muted }]}>Persoană de contact:</Text>
+          <ThemedText style={[styles.contactLabel, { color: tokens.colors.muted }]}>Persoană de contact:</ThemedText>
           <TouchableOpacity
             onPress={() => {
               setRatingModalVisible(true);
@@ -446,10 +455,10 @@ export default function AnnouncementDetailsScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="star-outline" size={16} color={tokens.colors.text} style={{ marginRight: 6 }} />
-            <Text style={[styles.evaluateText, { color: tokens.colors.text }]}>Evaluează</Text>
+            <ThemedText style={[styles.evaluateText, { color: tokens.colors.text }]}>Evaluează</ThemedText>
           </TouchableOpacity>
         </View>
-        <Text style={[styles.contactValue, { color: tokens.colors.text }]}>{announcement.contactPerson}</Text>
+        <ThemedText style={[styles.contactValue, { color: tokens.colors.text }]}>{announcement.contactPerson}</ThemedText>
 
         {/* Primary CTA: Send Message */}
         <TouchableOpacity
@@ -458,20 +467,20 @@ export default function AnnouncementDetailsScreen() {
           activeOpacity={0.9}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#ffffff" style={{ marginRight: 8 }} />
-          <Text style={styles.primaryCtaText}>TRIMITE MESAJ</Text>
+          <ThemedText style={styles.primaryCtaText}>TRIMITE MESAJ</ThemedText>
         </TouchableOpacity>
 
         {/* Phone Card */}
         <View style={[styles.phoneCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
           <Ionicons name="call-outline" size={20} color={tokens.colors.primary} style={{ marginRight: 10 }} />
-          <Text style={[styles.phoneValue, { color: tokens.colors.text }]}>
+          <ThemedText style={[styles.phoneValue, { color: tokens.colors.text }]}>
             {showPhone ? (announcement.contactPhone || '—') : 'xxx xxx xxx'}
-          </Text>
+          </ThemedText>
           {!!announcement.contactPhone && (
             <TouchableOpacity onPress={() => setShowPhone((s) => !s)} activeOpacity={0.8}>
-              <Text style={[styles.showPhoneLink, { color: tokens.colors.primary }]}>
+              <ThemedText style={[styles.showPhoneLink, { color: tokens.colors.primary }]}>
                 {showPhone ? 'ASCUNDE' : 'ARATĂ'}
-              </Text>
+              </ThemedText>
             </TouchableOpacity>
           )}
         </View>
@@ -482,84 +491,29 @@ export default function AnnouncementDetailsScreen() {
           style={[styles.outlineBtn, { borderColor: tokens.colors.border }]}
           activeOpacity={0.85}
         >
-          <Text style={[styles.outlineBtnText, { color: tokens.colors.text }]}>VIZUALIZARE PROFIL</Text>
+          <ThemedText style={[styles.outlineBtnText, { color: tokens.colors.text }]}>VIZUALIZARE PROFIL</ThemedText>
         </TouchableOpacity>
       </View>
 
-      {/* Rating Modal */}
-      <Modal visible={ratingModalVisible} transparent animationType="fade" onRequestClose={() => setRatingModalVisible(false)}>
-        <BlurView 
-          intensity={Platform.OS === 'android' ? 90 : 100} 
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        >
-          <View style={[styles.ratingModalOverlay, { backgroundColor: Platform.OS === 'android' ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)' }]}>
-          {/* Blur effect container */}
+      {/* Rating Modal removed - moved to absolute overlay */}
 
-          <View style={[styles.ratingModalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
-            <Text style={[styles.ratingModalTitle, { color: tokens.colors.text }]}>Evaluează utilizatorul</Text>
-            <View style={styles.ratingStarsRow}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <TouchableOpacity key={i} onPress={() => setRatingScore(i + 1)} activeOpacity={0.8}>
-                  <Ionicons name={i < ratingScore ? 'star' : 'star-outline'} size={36} color="#FFC107" style={{ marginRight: 6 }} />
-                </TouchableOpacity>
-              ))}
-              <Text style={[styles.ratingNumeric, { color: tokens.colors.text }]}>{Number(ratingScore).toFixed(1)}</Text>
-            </View>
-
-            <View style={[styles.ratingInputWrapper, { borderColor: tokens.colors.border, backgroundColor: tokens.colors.elev }]}> 
-              <TextInput
-                multiline
-                numberOfLines={4}
-                onChangeText={setRatingComment}
-                value={ratingComment}
-                style={[styles.ratingInput, { color: tokens.colors.text }]}
-                placeholder="Comentariu (opțional)"
-                placeholderTextColor={tokens.colors.placeholder}
-              />
-            </View>
-
-            <View style={styles.ratingModalActions}>
-              <TouchableOpacity onPress={() => setRatingModalVisible(false)} style={styles.ratingCancelBtn}>
-                <Text style={[styles.ratingCancelText, { color: tokens.colors.primary }]}>ANULEAZĂ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={async () => {
-                  if (!announcement?.user?._id) return;
-                  setSubmittingRating(true);
-                  try {
-                    await api.post('/api/reviews', {
-                      user: announcement.user._id,
-                      score: ratingScore,
-                      comment: ratingComment || undefined,
-                    });
-                    setRatingModalVisible(false);
-                    setRatingComment('');
-                    // optimistic UI: increase reviewCount and average - simplified
-                    // Could re-fetch seller profile for accurate numbers
-                  } catch (err) {
-                    console.warn('Failed to submit review', err);
-                    alert('Nu am putut trimite recenzia. Încearcă din nou mai târziu.');
-                  } finally {
-                    setSubmittingRating(false);
-                  }
-                }}
-                style={styles.ratingSubmitBtn}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.ratingSubmitText, { color: '#ffffff' }]}>{submittingRating ? 'TRIMITE...' : 'TRIMITE'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          </View>
-        </BlurView>
-      </Modal>
-
-      {/* Location Card */}
-      <View style={[styles.locationCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>        
-        <Text style={[styles.locationHeading, { color: tokens.colors.text }]}>Locație</Text>
+      {/* Location Section */}
+      <View style={styles.locationSection}>
+        <View style={styles.locationHeader}>
+          <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>Locație</ThemedText>
+          <TouchableOpacity
+            onPress={() => {
+              if (!announcement.location) return;
+              const q = encodeURIComponent(announcement.location);
+              const url = `https://www.google.com/maps/search/?api=1&query=${q}`;
+              Linking.openURL(url);
+            }}
+          >
+            <ThemedText style={{ color: tokens.colors.primary, fontSize: 13, fontWeight: '600' }}>Deschide Harta</ThemedText>
+          </TouchableOpacity>
+        </View>
         {/* Map embed: iframe pe web, WebView pe mobile (funcționează în Expo Go) */}
-        <View style={[styles.mapWrapper, { backgroundColor: tokens.colors.elev }]}>          
+        <View style={[styles.mapContainer, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
           {announcement.location ? (
             (() => {
               const encoded = encodeURIComponent(announcement.location);
@@ -622,7 +576,7 @@ export default function AnnouncementDetailsScreen() {
                 return (
                   <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}>
                     <Ionicons name="map-outline" size={48} color={tokens.colors.placeholder} style={{ marginBottom: 8 }} />
-                    <Text style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>Harta nu este disponibilă</Text>
+                    <ThemedText style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>Harta nu este disponibilă</ThemedText>
                   </View>
                 );
               }
@@ -636,18 +590,7 @@ export default function AnnouncementDetailsScreen() {
 
         <View style={styles.locationRow}>
           <Ionicons name="pin" size={16} color={tokens.colors.primary} />
-          <Text style={[styles.locationText, { color: tokens.colors.text, flex: 1 }]}>{announcement.location}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              if (!announcement.location) return;
-              const q = encodeURIComponent(announcement.location);
-              const url = `https://www.google.com/maps/search/?api=1&query=${q}`;
-              Linking.openURL(url);
-            }}
-            style={{ marginLeft: 8 }}
-          >
-            <Ionicons name="open-outline" size={20} color={tokens.colors.primary} />
-          </TouchableOpacity>
+          <ThemedText style={[styles.locationText, { color: tokens.colors.text, flex: 1 }]}>{announcement.location}</ThemedText>
         </View>
       </View>
       {/* Image Viewer: reuse shared component that handles native pinch/zoom and swiping */}
@@ -659,6 +602,73 @@ export default function AnnouncementDetailsScreen() {
         HeaderComponent={viewerHeaderComponent}
       />
     </ScrollView>
+
+    {/* Rating Modal Overlay */}
+    {ratingModalVisible && (
+        <BlurView 
+          intensity={80} 
+          tint={isDark ? 'dark' : 'light'}
+          experimentalBlurMethod="dimezisBlurView"
+          style={[StyleSheet.absoluteFill, styles.ratingModalOverlay, { zIndex: 1000 }]}
+        >
+          <View style={[styles.ratingModalCard, { backgroundColor: isDark ? '#121212' : tokens.colors.surface, borderColor: tokens.colors.border }]}>
+            <ThemedText style={[styles.ratingModalTitle, { color: tokens.colors.text }]}>Evaluează utilizatorul</ThemedText>
+            <View style={styles.ratingStarsRow}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TouchableOpacity key={i} onPress={() => setRatingScore(i + 1)} activeOpacity={0.8}>
+                  <Ionicons name={i < ratingScore ? 'star' : 'star-outline'} size={36} color="#FFC107" style={{ marginRight: 6 }} />
+                </TouchableOpacity>
+              ))}
+              <ThemedText style={[styles.ratingNumeric, { color: tokens.colors.text }]}>{Number(ratingScore).toFixed(1)}</ThemedText>
+            </View>
+
+            <View style={[styles.ratingInputWrapper, { borderColor: tokens.colors.border, backgroundColor: isDark ? '#1e1e1e' : tokens.colors.elev }]}> 
+              <ThemedTextInput
+                multiline
+                numberOfLines={4}
+                onChangeText={setRatingComment}
+                value={ratingComment}
+                style={[styles.ratingInput, { color: tokens.colors.text }]}
+                placeholder="Comentariu (opțional)"
+                placeholderTextColor={tokens.colors.placeholder}
+              />
+            </View>
+
+            <View style={styles.ratingModalActions}>
+              <TouchableOpacity onPress={() => setRatingModalVisible(false)} style={styles.ratingCancelBtn}>
+                <ThemedText style={[styles.ratingCancelText, { color: tokens.colors.primary }]}>ANULEAZĂ</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!announcement?.user?._id) return;
+                  setSubmittingRating(true);
+                  try {
+                    await api.post('/api/reviews', {
+                      user: announcement.user._id,
+                      score: ratingScore,
+                      comment: ratingComment || undefined,
+                    });
+                    setRatingModalVisible(false);
+                    setRatingComment('');
+                    // optimistic UI: increase reviewCount and average - simplified
+                    // Could re-fetch seller profile for accurate numbers
+                  } catch (err) {
+                    console.warn('Failed to submit review', err);
+                    alert('Nu am putut trimite recenzia. Încearcă din nou mai târziu.');
+                  } finally {
+                    setSubmittingRating(false);
+                  }
+                }}
+                style={styles.ratingSubmitBtn}
+                activeOpacity={0.9}
+              >
+                <ThemedText style={[styles.ratingSubmitText, { color: '#ffffff' }]}>{submittingRating ? 'TRIMITE...' : 'TRIMITE'}</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+    )}
+    </View>
   );
 }
 
@@ -675,11 +685,12 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   backText: { marginLeft: 8, fontSize: 18, fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '700' },
-  imageCardWrapper: { marginHorizontal: 16, marginBottom: 20, position: 'relative', overflow: 'visible' },
-  imageCard: { borderRadius: 18, borderWidth: 1, overflow: 'hidden', padding: 0 },
-  heroImage: { width: '100%', height: 320, backgroundColor: 'transparent' },
-  heroImageLarge: { width: '100%', height: 480, backgroundColor: 'transparent' },
-  heroPlaceholder: { width: '100%', height: 320, justifyContent: 'center', alignItems: 'center' },
+  // Align image container/styling with the preview carousel
+  imageCardWrapper: { marginBottom: 12, position: 'relative', overflow: 'visible' },
+  imageCard: { borderRadius: 0, borderWidth: 0, overflow: 'hidden', padding: 0 },
+  heroImage: { width: '100%', height: 280, backgroundColor: '#f0f0f0' },
+  heroImageLarge: { width: '100%', height: 480, backgroundColor: '#f0f0f0' },
+  heroPlaceholder: { width: '100%', height: 280, justifyContent: 'center', alignItems: 'center' },
   viewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   viewerHeader: { position: 'absolute', top: 28, right: 16, zIndex: 20 },
   viewerCloseBtn: { width: 40, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
@@ -691,10 +702,12 @@ const styles = StyleSheet.create({
   carouselControls: { position: 'absolute', left: 0, right: 0, top: '50%', transform: [{ translateY: -24 }], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, zIndex: 20 },
   navBtn: { width: 48, height: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: 'transparent' },
   // smaller side buttons placed close to image edges
-  navBtnLeft: { position: 'absolute', left: -12, top: '50%', transform: [{ translateY: -28 }], width: 50, height: 50, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, zIndex: 30, elevation: 6 },
-  navBtnRight: { position: 'absolute', right: -12, top: '50%', transform: [{ translateY: -28 }], width: 50, height: 50, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, zIndex: 30, elevation: 6 },
-  carouselCounter: { position: 'absolute', left: 0, right: 0, bottom: 12, alignItems: 'center', justifyContent: 'center', zIndex: 15 },
-  carouselCounterBubble: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignItems: 'center', justifyContent: 'center', minWidth: 48 },
+  navBtnLeft: { position: 'absolute', left: 8, top: '50%', transform: [{ translateY: -24 }], width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, zIndex: 30, elevation: 6 },
+  navBtnRight: { position: 'absolute', right: 8, top: '50%', transform: [{ translateY: -24 }], width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, zIndex: 30, elevation: 6 },
+  // Pagination similar to preview: centered dots near bottom
+  carouselCounter: { position: 'absolute', left: 0, right: 0, bottom: 16, alignItems: 'center', justifyContent: 'center', zIndex: 15 },
+  carouselCounterBubble: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 999, alignItems: 'center', justifyContent: 'center', minWidth: 0 },
+  paginationDotsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   counter: { fontSize: 13, fontWeight: '600' },
   cardActions: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 12 },
   actionCircle: { width: 52, height: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 0, backgroundColor: 'transparent' },
@@ -702,8 +715,8 @@ const styles = StyleSheet.create({
   postedAt: { fontSize: 12, fontWeight: '600' },
   title: { fontSize: 24, fontWeight: '700' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoryBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-  categoryText: { fontSize: 13, fontWeight: '600' },
+  categoryBadge: { alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 4 },
+  categoryText: { fontSize: 14, fontWeight: '600' },
   sectionHeading: { fontSize: 16, fontWeight: '700', marginTop: 4 },
   description: { fontSize: 14, lineHeight: 20 },
   divider: { borderBottomWidth: 1, marginVertical: 8 },
@@ -733,10 +746,11 @@ const styles = StyleSheet.create({
   showPhoneLink: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
   outlineBtn: { marginTop: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
   outlineBtnText: { fontSize: 14, fontWeight: '700' },
-  locationCard: { marginHorizontal: 16, borderWidth: 1, borderRadius: 18, padding: 20, marginBottom: 40, gap: 16 },
-  locationHeading: { fontSize: 18, fontWeight: '700' },
-  locationMapPlaceholder: { width: '100%', height: 180, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  mapWrapper: { width: '100%', height: 180, borderRadius: 14, overflow: 'hidden' },
+  locationSection: { marginHorizontal: 16, marginBottom: 40 },
+  locationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  mapContainer: { height: 160, borderRadius: 16, overflow: 'hidden', borderWidth: 1, position: 'relative' },
+  locationMapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
   mapInnerWrapper: { flex: 1, overflow: 'hidden' },
   mapWebview: { flex: 1, backgroundColor: 'transparent' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
