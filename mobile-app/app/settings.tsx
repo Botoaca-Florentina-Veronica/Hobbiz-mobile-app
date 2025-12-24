@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedView } from '../components/themed-view';
+import { ThemedText } from '../components/themed-text';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { StyleSheet, View, TouchableOpacity, ScrollView, TextInput, Alert, Modal, Platform } from 'react-native';
 import { Toast } from '../components/ui/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -12,8 +12,8 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedText } from '../components/themed-text';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,7 @@ import api from '../src/services/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { findCategoryByLabel } from '../src/constants/categories';
 import { Toast } from '../components/ui/Toast';
-import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { ProtectedRoute } from '../src/components/ProtectedRoute';
 
 interface Announcement {
   _id: string;

@@ -2,15 +2,15 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform, Dimensions } from 'react-native';
 import { StyleSheet, ScrollView, View, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '../../components/themed-text';
+import { ThemedView } from '../../components/themed-view';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { useResponsive } from '../../src/theme/responsive';
-import MobileHeader from '@/components/MobileHeader';
-import LegalFooter from '@/components/LegalFooter';
+import MobileHeader from '../../components/MobileHeader';
+import LegalFooter from '../../components/LegalFooter';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { useNotifications } from '@/src/context/NotificationContext';
+import { useNotifications } from '../../src/context/NotificationContext';
 import api from '../../src/services/api';
 import { useFocusEffect } from '@react-navigation/native';
 import { FlatList, Text } from 'react-native';
@@ -112,7 +112,7 @@ export default function HomeScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef<number | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
 
@@ -246,15 +246,15 @@ export default function HomeScreen() {
         searchSuggestions={searchResults}
         showSuggestions={searchTerm.trim().length >= 2}
         isSearching={isSearching}
-        onSearchChange={(text) => setSearchTerm(text)}
-        onSearchSubmit={(q) => {
+        onSearchChange={(text: string) => setSearchTerm(text)}
+        onSearchSubmit={(q: string) => {
           if (q && q.trim()) {
             router.push(`/all-announcements?q=${encodeURIComponent(q)}`);
           } else {
             router.push('/all-announcements');
           }
         }}
-        onSuggestionClick={(id) => {
+        onSuggestionClick={(id: string) => {
           setSearchTerm('');
           setSearchResults([]);
           router.push(`/announcement-details?id=${id}`);

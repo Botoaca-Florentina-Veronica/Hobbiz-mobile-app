@@ -1,14 +1,14 @@
 import React, { useRef, useEffect } from 'react';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '../../components/themed-view';
+import { ThemedText } from '../../components/themed-text';
 import { StyleSheet, View, TouchableOpacity, findNodeHandle, UIManager, Animated, Easing, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/src/context/ThemeContext';
+import { useAppTheme } from '../../src/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import storage from '@/src/services/storage';
-import { useLocale } from '@/src/context/LocaleContext';
+import storage from '../../src/services/storage';
+import { useLocale } from '../../src/context/LocaleContext';
 
 const TRANSLATIONS = {
   ro: {

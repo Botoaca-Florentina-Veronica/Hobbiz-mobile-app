@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedView } from '../components/themed-view';
+import { ThemedText } from '../components/themed-text';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
 import api from '../src/services/api';
 import { Toast } from '../components/ui/Toast';
-import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { ProtectedRoute } from '../src/components/ProtectedRoute';
 
 interface ImageItem { id: string; uri?: string; }
 interface Category { key: string; label: string; icon: string; color: string; }

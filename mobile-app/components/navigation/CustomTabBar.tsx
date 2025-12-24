@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../themed-text';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs/lib/typescript/src/types';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
@@ -29,7 +28,7 @@ const TAB_LABELS: Record<string, { ro: string; en: string }> = {
   account: { ro: 'Cont', en: 'Account' },
 };
 
-export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
+export const CustomTabBar: React.FC<any> = ({ state, descriptors, navigation }) => {
   const { tokens, isDark } = useAppTheme();
   const webBox = (tokens as any)?.shadow?.elev2?.boxShadow;
   const { isAuthenticated, loading, user } = useAuth();
@@ -79,7 +78,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
   return (
     <View style={[styles.wrapper, { backgroundColor: tokens.colors.surface, borderTopColor: tokens.colors.border, paddingBottom: bottomPad, height: barHeight }]}>      
       <View style={styles.row}>
-        {state.routes.map((route, index) => {
+        {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
           const base = TAB_CONFIG[route.name] || { icon: 'ellipse' };

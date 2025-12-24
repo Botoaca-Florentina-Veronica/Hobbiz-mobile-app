@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '../components/themed-view';
+import { ThemedText } from '../components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

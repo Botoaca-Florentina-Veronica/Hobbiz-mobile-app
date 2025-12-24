@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '../../components/themed-view';
+import { ThemedText } from '../../components/themed-text';
 import { StyleSheet, ScrollView, View, TouchableOpacity, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/src/context/ThemeContext';
+import { useAppTheme } from '../../src/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import storage from '../../src/services/storage';

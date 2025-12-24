@@ -1,6 +1,6 @@
 import React from 'react';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '../../components/themed-view';
+import { ThemedText } from '../../components/themed-text';
 import { StyleSheet, View, TouchableOpacity, Switch, ScrollView, Image, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { Modal, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import storage from '../../src/services/storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { ProtectedRoute } from '../../src/components/ProtectedRoute';
 import { Toast } from '../../components/ui/Toast';
 
 const TRANSLATIONS = {

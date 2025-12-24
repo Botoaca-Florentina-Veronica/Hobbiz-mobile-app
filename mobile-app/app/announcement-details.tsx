@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Platform, Modal, Share, TextInput } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedText } from '../components/themed-text';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';

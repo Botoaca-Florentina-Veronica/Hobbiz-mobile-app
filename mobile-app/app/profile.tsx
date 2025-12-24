@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedView } from '../components/themed-view';
+import { ThemedText } from '../components/themed-text';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { StyleSheet, View, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, StatusBar, FlatList, Text, TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

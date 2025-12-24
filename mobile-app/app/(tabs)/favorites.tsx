@@ -8,7 +8,7 @@ import { useAppTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { ProtectedRoute } from '../../src/components/ProtectedRoute';
 
 interface Announcement {
   _id: string;

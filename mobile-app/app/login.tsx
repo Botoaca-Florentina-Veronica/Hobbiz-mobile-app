@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Alert, useWindowDimensions, ScrollView } from 'react-native';
-import { ThemedTextInput } from '@/components/themed-text-input';
+import { ThemedTextInput } from '../components/themed-text-input';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '../components/themed-text';
 import { useAppTheme } from '../src/context/ThemeContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useRouter } from 'expo-router';

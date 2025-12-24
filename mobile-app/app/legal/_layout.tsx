@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, Platform } from 'react-native';
 import { Slot } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
+import { ThemedView } from '../../components/themed-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/src/context/ThemeContext';
+import { useAppTheme } from '../../src/context/ThemeContext';
 
 // Simple layout wrapper for /legal pages. Exports a default React component.
 export default function LegalLayout() {

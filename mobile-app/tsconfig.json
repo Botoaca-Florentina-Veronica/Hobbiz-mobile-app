@@ -3,9 +3,10 @@
   "compilerOptions": {
     "strict": false,
     "types": [],
+    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./*"
+        "*"
       ]
     }
   },

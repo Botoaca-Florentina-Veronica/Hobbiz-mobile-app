@@ -20,7 +20,7 @@ import api from '../../src/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/context/AuthContext';
 import { useChatNotifications } from '../../src/context/ChatNotificationContext';
-import { ProtectedRoute } from '@/src/components/ProtectedRoute';
+import { ProtectedRoute } from '../../src/components/ProtectedRoute';
 import { useLocale } from '../../src/context/LocaleContext';
 
 interface Conversation {
