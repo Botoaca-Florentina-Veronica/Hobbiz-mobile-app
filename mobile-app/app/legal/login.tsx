@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Alert, useWindowDimensions, ScrollView } from 'react-native';
-import { ThemedTextInput } from '../components/themed-text-input';
+import { ThemedTextInput } from '../../components/themed-text-input';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '../components/themed-text';
-import { useAppTheme } from '../src/context/ThemeContext';
-import { useAuth } from '../src/context/AuthContext';
+import { ThemedText } from '@/components/themed-text';
+import { useAppTheme } from '../../src/context/ThemeContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import api from '../src/services/api';
-import { saveToken } from '../src/services/auth';
+import api from '../../src/services/api';
+import { saveToken } from '../../src/services/auth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +27,9 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [socialLoading, setSocialLoading] = useState(false);
+
+  const locale = (Intl && Intl?.DateTimeFormat && (Intl.DateTimeFormat().resolvedOptions().locale || 'ro')) || 'ro';
+  const t = locale === 'en' ? { auth: 'Authentication', authError: 'Error processing authentication' } : { auth: 'Autentificare', authError: 'Eroare la procesarea autentificării' };
 
   // Calculează lățimea cardului în funcție de dimensiunea ecranului
   const getCardWidth = (): number | string => {
@@ -78,10 +81,15 @@ export default function LoginScreen() {
     }
   }
 
-  if (isAuthenticated) {
-    // Already logged; redirect silently
-    setTimeout(() => router.replace('/(tabs)'), 0);
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, router]);
+
+  const onForgotPassword = () => {
+    router.push('/legal/forgot-password');
+  };
 
   // Extract token from an oauth redirect URL and finalize login
   const handleOAuthRedirectUrl = async (url?: string) => {
@@ -112,7 +120,7 @@ export default function LoginScreen() {
         await handleOAuthRedirectUrl(url);
       } catch (e: any) {
         console.error('[OAuth] Error in URL handler:', e);
-        Alert.alert('Autentificare', e?.message || 'Eroare la procesarea autentificării');
+        Alert.alert(t.auth, e?.message || t.authError);
       } finally {
         setSocialLoading(false);
       }
@@ -337,7 +345,7 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
         <View style={styles.linksRow}>
-          <TouchableOpacity onPress={() => router.push('/legal/forgot-password')}>
+          <TouchableOpacity onPress={onForgotPassword}>
             <ThemedText style={[styles.link, { color: tokens.colors.primary, fontSize: responsiveSizes.linkFontSize }]}>
               Ai uitat parola?
             </ThemedText>

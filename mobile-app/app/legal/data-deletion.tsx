@@ -104,7 +104,7 @@ export default function DataDeletionScreen() {
 
           <StepCard step="B" title={locale === 'en' ? 'Delete via Email Request' : 'Ștergere prin Cerere Email'}>
             <ThemedText style={[styles.paragraph, { color: isDark ? '#ffffff' : '#4a5568' }]}>
-              {locale === 'en' ? <>Send an email to <ThemedText onPress={() => openMail('team.hobbiz@gmail.com')} style={[styles.link, { color: tokens.colors.primary }]}>team.hobbiz@gmail.com</ThemedText> with the subject line "Data Deletion Request" and include:</> : <>Trimite un email la <ThemedText onPress={() => openMail('team.hobbiz@gmail.com')} style={[styles.link, { color: tokens.colors.primary }]}>team.hobbiz@gmail.com</ThemedText> cu subiectul "Cerere Ștergere Date" și include:</>}
+              {locale === 'en' ? <>Send an email to <ThemedText onPress={() => openMail('team.hobbiz@gmail.com')} style={[styles.link, { color: tokens.colors.primary }]}>team.hobbiz@gmail.com</ThemedText> with the subject line &quot;Data Deletion Request&quot; and include:</> : <>Trimite un email la <ThemedText onPress={() => openMail('team.hobbiz@gmail.com')} style={[styles.link, { color: tokens.colors.primary }]}>team.hobbiz@gmail.com</ThemedText> cu subiectul &quot;Cerere Ștergere Date&quot; și include:</>}
             </ThemedText>
             <Bullet>{locale === 'en' ? 'Your full name as registered on Hobbiz' : 'Numele complet așa cum este înregistrat pe Hobbiz'}</Bullet>
             <Bullet>{locale === 'en' ? 'Your email address associated with your account' : 'Adresa de email asociată contului tău'}</Bullet>
@@ -115,8 +115,8 @@ export default function DataDeletionScreen() {
           <StepCard step="C" title={locale === 'en' ? 'Revoke Facebook Access' : 'Revocă Accesul Facebook'}>
             <ThemedText style={[styles.paragraph, { color: isDark ? '#ffffff' : '#4a5568' }]}>{locale === 'en' ? 'If you signed up using Facebook Login, you can also revoke Hobbiz\'s access to your Facebook data:' : 'Dacă te-ai înregistrat folosind Facebook Login, poți revoca și accesul Hobbiz la datele tale Facebook:'}</ThemedText>
             <Bullet>{locale === 'en' ? 'Go to Facebook Settings > Apps and Websites' : 'Mergi la Setări Facebook > Aplicații și Site-uri Web'}</Bullet>
-            <Bullet>{locale === 'en' ? 'Find "Hobbiz" in the list of active apps' : 'Găsește "Hobbiz" în lista aplicațiilor active'}</Bullet>
-            <Bullet>{locale === 'en' ? 'Click "Remove" to revoke all permissions' : 'Click pe "Elimină" pentru a revoca toate permisiunile'}</Bullet>
+            <Bullet>{locale === 'en' ? 'Find &quot;Hobbiz&quot; in the list of active apps' : 'Găsește "Hobbiz" în lista aplicațiilor active'}</Bullet>
+            <Bullet>{locale === 'en' ? 'Click &quot;Remove&quot; to revoke all permissions' : 'Click pe "Elimină" pentru a revoca toate permisiunile'}</Bullet>
             <Bullet>{locale === 'en' ? 'Optionally, request deletion of your Hobbiz app activity on Facebook' : 'Opțional, solicită ștergerea activității tale din aplicația Hobbiz pe Facebook'}</Bullet>
             <ThemedText style={[styles.paragraph, { color: isDark ? '#ffffff' : '#4a5568', fontStyle: 'italic', marginTop: 8 }]}>{locale === 'en' ? 'Note: Revoking Facebook access will only disconnect the app from Facebook. To completely delete your Hobbiz account data, you must also use Option A or B above.' : 'Notă: Revocarea accesului Facebook va deconecta doar aplicația de Facebook. Pentru a șterge complet datele contului Hobbiz, trebuie să folosești și Opțiunea A sau B de mai sus.'}</ThemedText>
           </StepCard>

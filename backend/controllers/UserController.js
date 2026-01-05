@@ -2,12 +2,19 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { execFile } = require('child_process');
-const Alert = require('../models/Alert');
 const Announcement = require('../models/Announcement');
 const multer = require('multer');
 const path = require('path');
 const cloudinaryUpload = require('../config/cloudinaryMulter');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+const { MailerSend, EmailParams, Sender, Recipient } = require('mailersend');
+require('dotenv').config();
+
+// --- CONFIGURARE MAILERSEND ---
+const mailerSend = new MailerSend({
+  apiKey: process.env.MAILERSEND_API_KEY,
+});
 
 // Upload avatar utilizator
 const uploadAvatar = async (req, res) => {
@@ -29,9 +36,90 @@ const uploadAvatar = async (req, res) => {
   }
 };
 
+// Upload cover (banner) image for profile
+const uploadCover = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ error: 'Nicio imagine încărcată.' });
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilizator negăsit.' });
+    }
+    user.coverImage = req.file.path;
+    await user.save();
+    res.json({ message: 'Coperta a fost actualizată cu succes!', coverImage: user.coverImage });
+  } catch (error) {
+    console.error('Eroare la upload cover:', error);
+    res.status(500).json({ error: 'Eroare server la upload cover.' });
+  }
+};
+
+// Delete current avatar reference (optional: keep image in Cloudinary to avoid API complexity)
+const deleteAvatar = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
+    user.avatar = undefined;
+    await user.save();
+    res.json({ message: 'Avatar eliminat.' });
+  } catch (e) {
+    console.error('Eroare la ștergerea avatarului:', e);
+    res.status(500).json({ error: 'Eroare server la ștergerea avatarului' });
+  }
+};
+
+// Delete current cover reference
+const deleteCover = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
+    user.coverImage = undefined;
+    await user.save();
+    res.json({ message: 'Coperta a fost ștearsă.' });
+  } catch (e) {
+    console.error('Eroare la ștergerea cover-ului:', e);
+    res.status(500).json({ error: 'Eroare server la ștergerea cover-ului' });
+  }
+};
+
 // Utilitare pentru email normalization & duplicate merge
 const normalizeEmail = (email) => (email || '').trim().toLowerCase();
 const escapeRegex = (str='') => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// --- MAILERSEND EMAIL HELPER ---
+async function sendPasswordResetEmail(to, code, userName = 'Utilizator') {
+  if (!process.env.MAILERSEND_API_KEY || !process.env.SENDER_EMAIL) {
+    console.error('[PasswordReset] MailerSend not configured (MAILERSEND_API_KEY or SENDER_EMAIL missing)');
+    throw new Error('Serviciul de email nu este configurat.');
+  }
+
+  const appName = process.env.APP_NAME || 'Hobbiz';
+  const sentFrom = new Sender(process.env.SENDER_EMAIL, appName);
+  const recipients = [new Recipient(to, userName)];
+
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setSubject(`Codul tău de resetare - ${appName}`)
+    .setHtml(
+      `<h3>Codul tău de resetare este: <br><strong>${code}</strong></h3>
+       <p>Expiră în 15 minute.</p>
+       <p>Dacă nu ai solicitat resetarea parolei, poți ignora acest mesaj.</p>`
+    )
+    .setText(`Codul tău de resetare: ${code}. Expiră în 15 minute.`);
+
+  try {
+    await mailerSend.email.send(emailParams);
+    console.log(`[PasswordReset] Email trimis cu succes la ${to}`);
+  } catch (error) {
+    console.error('[PasswordReset] MailerSend error:', error?.message || error);
+    throw new Error('Nu am putut trimite emailul de resetare.');
+  }
+}
 
 async function mergeDuplicateUsersByEmail(normalizedEmail) {
   if (!normalizedEmail) return null;
@@ -126,7 +214,10 @@ const register = async (req, res) => {
     
     // Generează token
     const token = jwt.sign(
-      { userId: user._id },
+      { 
+        userId: user._id,
+        tokenVersion: user.tokenVersion || 0
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
@@ -167,32 +258,12 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'Date de autentificare invalide' });
     }
 
-    // === MITM DETECTION ===
-  execFile('../mitm-detector.exe', ['Ethernet'], (error, stdout, stderr) => {
-      let alerts = [];
-      if (error) {
-        console.error('Eroare la rularea detectorului:', error);
-        // Nu bloca login-ul dacă detectorul dă eroare, doar loghează
-      } else {
-        try {
-          alerts = JSON.parse(stdout);
-        } catch (e) {
-          alerts = stdout.split('\n').filter(Boolean);
-        }
-        if (alerts.length > 0) {
-          Alert.create({
-            username: email,
-            alert: alerts.join('; '),
-            timestamp: new Date()
-          });
-        }
-      }
-    });
-    // === END MITM DETECTION ===
-
     // Generează token
     const token = jwt.sign(
-      { userId: user._id },
+      { 
+        userId: user._id,
+        tokenVersion: user.tokenVersion || 0
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -218,40 +289,6 @@ const login = async (req, res) => {
   } catch (error) {
     console.error('Eroare autentificare:', error);
     res.status(500).json({ error: 'Eroare server la autentificare' });
-  }
-};
-
-// Înregistrează Expo/FCM push token pentru utilizatorul autentificat
-const registerPushToken = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const { token } = req.body || {};
-    if (!token || typeof token !== 'string') {
-      return res.status(400).json({ error: 'Token invalid' });
-    }
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
-    user.pushToken = token;
-    await user.save();
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Eroare registerPushToken:', e);
-    res.status(500).json({ error: 'Eroare la salvarea push token' });
-  }
-};
-
-// Elimină push token (logout/dezinstalare)
-const removePushToken = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
-    user.pushToken = undefined;
-    await user.save();
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Eroare removePushToken:', e);
-    res.status(500).json({ error: 'Eroare la eliminarea push token' });
   }
 };
 
@@ -392,6 +429,82 @@ const updatePassword = async (req, res) => {
   }
 };
 
+// Request password reset (send code to email)
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: 'Emailul este obligatoriu' });
+    }
+
+    // Do not leak if the account exists; respond with 200 either way.
+    const user = await User.findOne({ email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, 'i') });
+
+    // Generate a 6-digit code
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+    if (user) {
+      user.passwordResetCodeHash = codeHash;
+      user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save();
+    }
+
+    // If mailer isn't configured, fail explicitly so the client can show a useful message.
+    try {
+      const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilizator' : 'Utilizator';
+      await sendPasswordResetEmail(normalizedEmail, code, userName);
+    } catch (mailErr) {
+      console.error('[PasswordReset] Email send failed:', mailErr?.message || mailErr);
+      return res.status(500).json({ error: 'Serviciul de email nu este configurat. Încearcă mai târziu.' });
+    }
+
+    return res.json({ message: 'Dacă există un cont cu acest email, vei primi un cod de resetare.' });
+  } catch (error) {
+    console.error('Eroare la requestPasswordReset:', error);
+    return res.status(500).json({ error: 'Eroare server la resetarea parolei' });
+  }
+};
+
+// Confirm password reset (verify code and set new password)
+const confirmPasswordReset = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !code || !newPassword) {
+      return res.status(400).json({ error: 'Toate câmpurile sunt obligatorii' });
+    }
+
+    const user = await User.findOne({ email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, 'i') });
+    if (!user || !user.passwordResetCodeHash || !user.passwordResetExpires) {
+      return res.status(400).json({ error: 'Cod invalid sau expirat' });
+    }
+
+    if (new Date(user.passwordResetExpires).getTime() < Date.now()) {
+      user.passwordResetCodeHash = undefined;
+      user.passwordResetExpires = undefined;
+      try { await user.save(); } catch (_) {}
+      return res.status(400).json({ error: 'Cod invalid sau expirat' });
+    }
+
+    const incomingHash = crypto.createHash('sha256').update(String(code)).digest('hex');
+    if (incomingHash !== user.passwordResetCodeHash) {
+      return res.status(400).json({ error: 'Cod invalid sau expirat' });
+    }
+
+    user.password = newPassword;
+    user.passwordResetCodeHash = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    return res.json({ message: 'Parola a fost resetată cu succes' });
+  } catch (error) {
+    console.error('Eroare la confirmPasswordReset:', error);
+    return res.status(500).json({ error: 'Eroare server la resetarea parolei' });
+  }
+};
+
 // Adaugă un anunț nou pentru utilizatorul autentificat
 const addAnnouncement = async (req, res) => {
   try {
@@ -438,11 +551,11 @@ const addAnnouncement = async (req, res) => {
   }
 };
 
-// Returnează toate anunțurile utilizatorului autentificat
+// Returnează toate anunțurile utilizatorului autentificat (exclude cele arhivate implicit)
 const getMyAnnouncements = async (req, res) => {
   try {
     const userId = req.userId;
-    const announcements = await Announcement.find({ user: userId }).sort({ createdAt: -1 });
+    const announcements = await Announcement.find({ user: userId, archived: { $ne: true } }).sort({ createdAt: -1 });
     res.json(announcements);
   } catch (error) {
     console.error('Eroare la listare anunțuri:', error);
@@ -466,12 +579,12 @@ const getMyAnnouncementById = async (req, res) => {
   }
 };
 
-// Returnează anunțurile publice pentru un utilizator specific (vizualizare publică)
+// Returnează anunțurile publice pentru un utilizator specific (vizualizare publică) - exclude arhivate
 const getUserAnnouncementsPublic = async (req, res) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: 'Lipsește userId' });
-    const announcements = await Announcement.find({ user: userId }).sort({ createdAt: -1 });
+    const announcements = await Announcement.find({ user: userId, archived: { $ne: true } }).sort({ createdAt: -1 });
     res.json(announcements);
   } catch (error) {
     console.error('Eroare la listare anunțuri publice:', error);
@@ -571,7 +684,7 @@ const updateAnnouncement = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.userId;
-    const { firstName, lastName, localitate, phone } = req.body;
+    const { firstName, lastName, localitate, phone, notificationSettings } = req.body;
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'Utilizator negăsit' });
@@ -580,11 +693,125 @@ const updateProfile = async (req, res) => {
     if (lastName !== undefined) user.lastName = lastName;
     if (localitate !== undefined) user.localitate = localitate;
     if (phone !== undefined) user.phone = phone;
+    if (notificationSettings !== undefined) {
+      console.log('📢 Updating notification settings:', notificationSettings);
+      user.notificationSettings = notificationSettings;
+    }
     await user.save();
+    console.log('✓ Profile updated for user:', userId);
     res.json({ message: 'Profil actualizat cu succes!' });
   } catch (error) {
     console.error('Eroare la actualizarea profilului:', error);
     res.status(500).json({ error: 'Eroare server la actualizarea profilului' });
+  }
+};
+
+// Arhivează un anunț (setează archived = true)
+const archiveAnnouncement = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const announcementId = req.params.id;
+    const announcement = await Announcement.findOne({ _id: announcementId, user: userId });
+    if (!announcement) {
+      return res.status(404).json({ error: 'Anunțul nu a fost găsit sau nu îți aparține.' });
+    }
+    announcement.archived = true;
+    await announcement.save();
+    res.json({ message: 'Anunț arhivat cu succes!', announcement });
+  } catch (error) {
+    console.error('Eroare la arhivarea anunțului:', error);
+    res.status(500).json({ error: 'Eroare server la arhivarea anunțului' });
+  }
+};
+
+// Returnează anunțurile arhivate ale utilizatorului
+const getArchivedAnnouncements = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const announcements = await Announcement.find({ user: userId, archived: true }).sort({ createdAt: -1 });
+    res.json(announcements);
+  } catch (error) {
+    console.error('Eroare la listare anunțuri arhivate:', error);
+    res.status(500).json({ error: 'Eroare server la listare anunțuri arhivate' });
+  }
+};
+
+// Dezarhivează un anunț (setează archived = false)
+const unarchiveAnnouncement = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const announcementId = req.params.id;
+    const announcement = await Announcement.findOne({ _id: announcementId, user: userId });
+    if (!announcement) {
+      return res.status(404).json({ error: 'Anunțul nu a fost găsit sau nu îți aparține.' });
+    }
+    announcement.archived = false;
+    await announcement.save();
+    res.json({ message: 'Anunț dezarhivat cu succes!', announcement });
+  } catch (error) {
+    console.error('Eroare la dezarhivarea anunțului:', error);
+    res.status(500).json({ error: 'Eroare server la dezarhivarea anunțului' });
+  }
+};
+
+// Setează token-ul Expo Push pentru utilizatorul autentificat
+const setPushToken = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Lipsește tokenul' });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
+
+    // Migration check: if pushToken is a string, convert to array
+    if (user.pushToken && typeof user.pushToken === 'string') {
+      user.pushToken = [user.pushToken];
+    }
+    // Ensure it is an array
+    if (!Array.isArray(user.pushToken)) {
+      user.pushToken = [];
+    }
+
+    // Add token if not already present
+    if (!user.pushToken.includes(token)) {
+      user.pushToken.push(token);
+      await user.save();
+    }
+    res.json({ message: 'Push token salvat cu succes' });
+  } catch (error) {
+    console.error('Eroare la setarea push token:', error);
+    res.status(500).json({ error: 'Eroare server la setarea push token' });
+  }
+};
+
+// Șterge token-ul Expo Push pentru utilizatorul autentificat
+const deletePushToken = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { token } = req.body; // Optional: specific token to remove
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Utilizator negăsit' });
+
+    if (token) {
+      // Remove specific token
+      if (Array.isArray(user.pushToken)) {
+        user.pushToken = user.pushToken.filter(t => t !== token);
+      } else if (user.pushToken === token) {
+        // Legacy string case
+        user.pushToken = [];
+      }
+    } else {
+      // No token specified: clear all (legacy behavior)
+      user.pushToken = [];
+    }
+
+    await user.save();
+    res.json({ message: 'Push token eliminat cu succes' });
+  } catch (error) {
+    console.error('Eroare la ștergerea push token:', error);
+    res.status(500).json({ error: 'Eroare server la ștergerea push token' });
   }
 };
 
@@ -595,6 +822,8 @@ module.exports = {
   getProfile,
   updateEmail,
   updatePassword,
+  requestPasswordReset,
+  confirmPasswordReset,
   addAnnouncement,
   getMyAnnouncements,
   getMyAnnouncementById,
@@ -603,6 +832,12 @@ module.exports = {
   updateAnnouncement,
   updateProfile,
   uploadAvatar,
-  registerPushToken,
-  removePushToken
+  uploadCover,
+  deleteAvatar,
+  deleteCover,
+  archiveAnnouncement,
+  getArchivedAnnouncements,
+  unarchiveAnnouncement
+  ,setPushToken,
+  deletePushToken
 };

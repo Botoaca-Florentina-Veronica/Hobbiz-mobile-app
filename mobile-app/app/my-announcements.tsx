@@ -448,7 +448,7 @@ export default function MyAnnouncementsScreen() {
                 {searchTerm && (
                   <View style={styles.chip}>
                     <ThemedText style={styles.chipText}>
-                      {t.searchLabel}: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
+                      {t.searchLabel}: &quot;{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}&quot;
                     </ThemedText>
                     <TouchableOpacity onPress={() => setSearchTerm('')}>
                       <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />

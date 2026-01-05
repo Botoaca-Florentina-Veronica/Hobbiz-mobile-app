@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Image, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { Modal, View, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemedText } from '../../../components/themed-text';
 
 type ImageSource = { uri?: string } | string | number;
@@ -19,36 +19,7 @@ type Props = {
 export default function ImageViewer(props: Props) {
   const { images = [], imageIndex = 0, visible, onRequestClose, onImageIndexChange, showCounter = false, ...rest } = props;
 
-  // Prefer native package on mobile platforms. Use dynamic require so bundlers on web
-  // don't try to resolve the native-only package.
-  if (Platform.OS !== 'web') {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const ImageViewing = require('react-native-image-viewing').default;
-      return (
-        // @ts-ignore - pass through props to native component with smooth transition settings
-        <ImageViewing 
-          images={images as any} 
-          imageIndex={imageIndex} 
-          visible={visible} 
-          onRequestClose={onRequestClose} 
-          onImageIndexChange={onImageIndexChange}
-          animationType="fade"
-          swipeToCloseEnabled={true}
-          doubleTapToZoomEnabled={true}
-          presentationStyle="overFullScreen"
-          {...rest} 
-        />
-      );
-    } catch (e) {
-      // If require fails for any reason, fall through to web fallback below.
-      // This may happen in unit tests or if the package is missing.
-      // eslint-disable-next-line no-console
-      console.warn('react-native-image-viewing not available, using fallback viewer', e);
-    }
-  }
-
-  // Web / fallback implementation: simple modal with prev/next and image display.
+  // Fallback implementation (web-safe): simple modal with prev/next and image display.
   const [index, setIndex] = useState(imageIndex);
 
   useEffect(() => {
@@ -57,7 +28,7 @@ export default function ImageViewer(props: Props) {
 
   useEffect(() => {
     if (onImageIndexChange) onImageIndexChange(index);
-  }, [index]);
+  }, [index, onImageIndexChange]);
 
   const resolveSource = (src: ImageSource) => {
     if (typeof src === 'string') return { uri: src };

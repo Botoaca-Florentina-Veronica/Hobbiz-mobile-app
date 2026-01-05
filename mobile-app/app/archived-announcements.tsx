@@ -316,7 +316,7 @@ export default function ArchivedAnnouncementsScreen() {
                 {searchTerm && (
                   <View style={styles.chip}>
                     <ThemedText style={styles.chipText}>
-                      Căutare: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
+                      Căutare: &quot;{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}&quot;
                     </ThemedText>
                     <TouchableOpacity onPress={() => setSearchTerm('')}>
                       <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />

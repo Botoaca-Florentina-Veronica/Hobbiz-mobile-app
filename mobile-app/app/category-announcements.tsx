@@ -358,7 +358,7 @@ export default function CategoryAnnouncementsScreen() {
               {searchTerm && (
                 <View style={[styles.chip, { backgroundColor: `${tokens.colors.primary}15` }]}>
                   <ThemedText style={[styles.chipText, { color: tokens.colors.primary }]}>
-                    Căutare: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
+                    Căutare: &quot;{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}&quot;
                   </ThemedText>
                   <TouchableOpacity onPress={() => setSearchTerm('')}>
                     <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
