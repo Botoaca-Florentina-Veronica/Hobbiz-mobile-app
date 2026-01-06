@@ -75,7 +75,7 @@ const HERO_IMAGE_CONFIG = {
   minHeight: 260,
   
   // Înălțime maximă (px) - pentru dispozitive foarte mari
-  maxHeight: 600,
+  maxHeight: 800,
   
   // Procent din înălțimea ecranului (0.34 = 34%)
   screenHeightPercent: 0.34,
@@ -84,13 +84,15 @@ const HERO_IMAGE_CONFIG = {
   borderRadius: 16,
   
   // Padding orizontal (spațiu la margini)
-  horizontalPadding: 32,
+  horizontalPadding: 24,
   // Suprascrieri specifice telefoanelor (opțional)
   phoneOverrides: {
-    // Exemplu: face imaginea mai wide și mai înaltă pe telefoane
-    aspectRatio: 1.1,
-    minHeight: 320,
-    screenHeightPercent: 0.40,
+    // Face imaginea mai wide și semnificativ mai înaltă pe telefoane
+    aspectRatio: 1.0,
+    minHeight: 420,
+    screenHeightPercent: 0.55,
+    // Mai puțin padding pe mobile pentru a profita de lățimea ecranului
+    horizontalPadding: 16,
   },
 };
 // ============================================================================
@@ -99,7 +101,7 @@ export default function HomeScreen() {
   const { tokens, isDark } = useAppTheme();
   // shared border style for inner container-like cards (used in popular cards)
   // In light mode: black border; in dark mode: white border
-  const containerBorderStyle = { borderWidth: 1, borderColor: isDark ? '#ffffff' : '#000000' } as const;
+  const containerBorderStyle = { borderWidth: isDark ? 1 : 0.5, borderColor: isDark ? '#ffffff' : '#000000' } as const;
   const { columnsForCategories, width: screenWidth, isPhone, isTablet, isLargeTablet, scale } = useResponsive();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -113,7 +115,7 @@ export default function HomeScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef<any>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
 
@@ -304,25 +306,26 @@ export default function HomeScreen() {
             let imageWidth = Math.min(availableWidth, Math.round(calculatedHeight * cfg.aspectRatio));
             const imageHeight = Math.round(imageWidth / cfg.aspectRatio);
 
+            const squareSide = Math.min(imageWidth, imageHeight);
             return (
-              <View style={[styles.mainHeroWrap, { height: imageHeight + 20, marginBottom: -16 }]}>
+              <View style={[styles.mainHeroWrap, { height: squareSide + 20, marginBottom: -64 }]}>
                 <View style={{ 
-                  width: imageWidth, 
-                  height: imageHeight,
+                  width: squareSide, 
+                  height: squareSide,
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   borderRadius: cfg.borderRadius, 
                   overflow: 'hidden'
                 }}>
                   <Image
-                    // Afișăm hobby_img.jpg pe telefoane și hobbiz-wide-1.png pe tablete
+                    // Afișăm `hobby-img.png` pe telefoane și `hobbiz-wide.png` pe tablete
                     source={isPhone 
-                      ? require('../../assets/images/hobby_img.jpg') 
+                      ? require('../../assets/images/hobby-img.png') 
                       : require('../../assets/images/hobbiz-wide.png')
                     }
                     style={{ 
-                      width: imageWidth, 
-                      height: imageHeight, 
+                      width: squareSide, 
+                      height: squareSide, 
                       borderRadius: cfg.borderRadius,
                     }} 
                     resizeMode="contain"

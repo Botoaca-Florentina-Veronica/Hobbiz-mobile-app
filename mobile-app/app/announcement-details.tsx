@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Platform, Modal, Share, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Platform, Modal, Share, TextInput, Alert } from 'react-native';
 import { ThemedText } from '../components/themed-text';
 import { ThemedTextInput } from '../components/themed-text-input';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,10 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '../src/context/ThemeContext';
+import { useAuth } from '../src/context/AuthContext';
 import api from '../src/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ImageViewing from '../src/components/ImageViewer';
 import Constants from 'expo-constants';
+import { findCategoryByLabel } from '../src/constants/categories';
 
 interface Announcement {
   _id: string;
@@ -28,12 +30,93 @@ interface Announcement {
   user?: { _id: string; firstName?: string; lastName?: string; avatar?: string };
 }
 
+const TRANSLATIONS = {
+  ro: {
+    posted: 'Postat',
+    description: 'Descriere',
+    id: 'ID:',
+    views: 'vizualizări',
+    sellerInfo: 'Informații vânzător',
+    contactPerson: 'Persoană de contact:',
+    evaluate: 'Evaluează',
+    sendMessage: 'TRIMITE MESAJ',
+    hide: 'ASCUNDE',
+    show: 'ARATĂ',
+    viewProfile: 'VIZUALIZARE PROFIL',
+    location: 'Locație',
+    openMap: 'Deschide Harta',
+    mapNotAvailable: 'Harta nu este disponibilă',
+    evaluateUser: 'Evaluează utilizatorul',
+    commentOptional: 'Comentariu (opțional)',
+    cancel: 'ANULEAZĂ',
+    send: 'TRIMITE',
+    sending: 'TRIMITE...',
+    reviewFailed: 'Nu am putut trimite recenzia. Încearcă din nou mai târziu.',
+    back: 'înapoi',
+    loadError: 'Nu am putut încărca anunțul.',
+    loading: 'Se încarcă anunțul...',
+    error: 'Eroare',
+    notFound: 'Anunțul nu a fost găsit.',
+    retry: 'Reîncearcă',
+    openSellerProfile: 'Deschide profilul vânzătorului',
+    loadingReviews: 'se încarcă recenziile...',
+    noReviews: 'nu există review-uri',
+    reviews: 'recenzii',
+    loginRequired: 'Autentificare necesară',
+    loginToFavorite: 'Trebuie să te autentifici pentru a adăuga la favorite.',
+    favoriteAdded: 'Adăugat la favorite',
+    favoriteRemoved: 'Eliminat din favorite',
+    favoriteFailed: 'Nu am putut actualiza favorite. Încearcă din nou.',
+  },
+  en: {
+    posted: 'Posted',
+    description: 'Description',
+    id: 'ID:',
+    views: 'views',
+    sellerInfo: 'Seller Information',
+    contactPerson: 'Contact Person:',
+    evaluate: 'Rate',
+    sendMessage: 'SEND MESSAGE',
+    hide: 'HIDE',
+    show: 'SHOW',
+    viewProfile: 'VIEW PROFILE',
+    location: 'Location',
+    openMap: 'Open Map',
+    mapNotAvailable: 'Map not available',
+    evaluateUser: 'Rate user',
+    commentOptional: 'Comment (optional)',
+    cancel: 'CANCEL',
+    send: 'SEND',
+    sending: 'SENDING...',
+    reviewFailed: 'Could not send review. Please try again later.',
+    back: 'back',
+    loadError: 'Could not load announcement.',
+    loading: 'Loading announcement...',
+    error: 'Error',
+    notFound: 'Announcement not found.',
+    retry: 'Retry',
+    openSellerProfile: 'Open seller profile',
+    loadingReviews: 'loading reviews...',
+    noReviews: 'no reviews',
+    reviews: 'reviews',
+    loginRequired: 'Login Required',
+    loginToFavorite: 'You need to login to add favorites.',
+    favoriteAdded: 'Added to favorites',
+    favoriteRemoved: 'Removed from favorites',
+    favoriteFailed: 'Could not update favorites. Please try again.',
+  }
+};
+
 export default function AnnouncementDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { tokens, isDark } = useAppTheme();
+  const { isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
+
+  const locale = (Intl && Intl?.DateTimeFormat && (Intl.DateTimeFormat().resolvedOptions().locale || 'ro')) || 'ro';
+  const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
 
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +126,7 @@ export default function AnnouncementDetailsScreen() {
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const [fallbackImage, setFallbackImage] = useState<string | null>(null);
   const [favorited, setFavorited] = useState<boolean>(false);
+  const [favoriting, setFavoriting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showPhone, setShowPhone] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
@@ -53,6 +137,9 @@ export default function AnnouncementDetailsScreen() {
   const [sellerRating, setSellerRating] = useState<number | null>(null);
   const [sellerReviewCount, setSellerReviewCount] = useState<number>(0);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState<boolean>(false);
+  // Map loading state for WebView errors/retries
+  const [mapLoadFailed, setMapLoadFailed] = useState<boolean>(false);
+  const [mapReloadKey, setMapReloadKey] = useState<number>(0);
 
   const width = Dimensions.get('window').width;
   const isLarge = width >= 768;
@@ -89,7 +176,7 @@ export default function AnnouncementDetailsScreen() {
       }
     } catch (e: any) {
       console.error('Error loading announcement details:', e?.message || e);
-      setFetchError('Nu am putut încărca anunțul.');
+      setFetchError(t.loadError);
     } finally {
       setLoading(false);
     }
@@ -99,17 +186,17 @@ export default function AnnouncementDetailsScreen() {
     fetchAnnouncement();
   }, [fetchAnnouncement]);
 
-  // Ascund header-ul implicit al navigatorului (evit bara neagră de sus)
+  // Hide the default navigator header (avoid the black bar at the top)
   useEffect(() => {
     try {
       // @ts-ignore
       navigation.setOptions?.({ headerShown: false });
     } catch (e) {
-      // nu blochează execuția dacă nu e disponibil
+      // Does not block execution if unavailable
     }
   }, [navigation]);
 
-  // Nu mai avem nevoie de geocodare sau MapView nativ — folosim iframe Google Maps pe toate platformele (funcționează în Expo Go)
+  // No longer need geocoding or native MapView — we use Google Maps iframe on all platforms (works in Expo Go)
 
   const getImageSrc = (img?: string) => {
     if (!img) return null;
@@ -229,7 +316,7 @@ export default function AnnouncementDetailsScreen() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: tokens.colors.bg, paddingTop: insets.top + 40 }]}>        
         <ActivityIndicator size="large" color={tokens.colors.primary} />
-        <ThemedText style={[styles.loadingMessage, { color: tokens.colors.muted, marginTop: 12 }]}>Se încarcă anunțul...</ThemedText>
+        <ThemedText style={[styles.loadingMessage, { color: tokens.colors.muted, marginTop: 12 }]}>{t.loading}</ThemedText>
       </View>
     );
   }
@@ -240,20 +327,18 @@ export default function AnnouncementDetailsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>          
           <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
         </TouchableOpacity>
-        <ThemedText style={[styles.errorTitle, { color: tokens.colors.text }]}>Eroare</ThemedText>
-        <ThemedText style={[styles.errorMessage, { color: tokens.colors.muted }]}>{fetchError || 'Anunțul nu a fost găsit.'}</ThemedText>
+        <ThemedText style={[styles.errorTitle, { color: tokens.colors.text }]}>{t.error}</ThemedText>
+        <ThemedText style={[styles.errorMessage, { color: tokens.colors.muted }]}>{fetchError || t.notFound}</ThemedText>
         <TouchableOpacity onPress={fetchAnnouncement} style={[styles.retryBtn, { backgroundColor: tokens.colors.primary }]}>          
-          <ThemedText style={styles.retryText}>Reîncearcă</ThemedText>
+          <ThemedText style={styles.retryText}>{t.retry}</ThemedText>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const scrollStyle: any = Platform.OS === 'web' ? { height: '100vh' } : { flex: 1 };
-
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors.bg }}>
-      <ScrollView style={scrollStyle} contentContainerStyle={{ paddingBottom: 16 }}>
+      <ScrollView style={Platform.OS === 'web' ? ({ height: '100vh' } as any) : { flex: 1 }} contentContainerStyle={{ paddingBottom: 16 }}>
       {/* Header: circular back button + 'înapoi' text on left, placeholder right for balance */}
       <View style={[styles.headerSpacer, { paddingTop: insets.top + 12 }]}>        
         <View style={[styles.headerRow, { alignItems: 'center' }]}>
@@ -265,7 +350,7 @@ export default function AnnouncementDetailsScreen() {
             >
               <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
             </TouchableOpacity>
-            <ThemedText style={[styles.backText, { color: tokens.colors.text, marginLeft: 12 }]}>înapoi</ThemedText>
+            <ThemedText style={[styles.backText, { color: tokens.colors.text, marginLeft: 12 }]}>{t.back}</ThemedText>
           </View>
 
           {/* Placeholder to keep layout balanced */}
@@ -333,7 +418,7 @@ export default function AnnouncementDetailsScreen() {
 
       <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
         <View style={[styles.categoryBadge, { backgroundColor: isDark ? tokens.colors.elev : tokens.colors.surface }]}>            
-          <ThemedText style={[styles.categoryText, { color: tokens.colors.primary }]}>{announcement.category}</ThemedText>
+          <ThemedText style={[styles.categoryText, { color: tokens.colors.primary }]}>{findCategoryByLabel(announcement.category)?.label || announcement.category}</ThemedText>
         </View>
       </View>
 
@@ -343,28 +428,61 @@ export default function AnnouncementDetailsScreen() {
         <View style={styles.cardActions}>
           <TouchableOpacity
             onPress={async () => {
+              // prevent double clicks
+              if (favoriting) return;
+
+              // Check authentication first
+              if (!isAuthenticated) {
+                Alert.alert(t.loginRequired, t.loginToFavorite, [
+                  { text: t.cancel, style: 'cancel' },
+                  { text: 'Login', onPress: () => router.push('/login') }
+                ]);
+                return;
+              }
+
+              setFavoriting(true);
               try {
                 if (!favorited) {
                   const r = await api.post(`/api/favorites/${id}`);
+                  console.log('[announcement-details] Favorite added:', r?.data);
                   setFavorited(true);
                   if (r?.data?.favoritesCount !== undefined) {
                     setAnnouncement(prev => prev ? { ...prev, favoritesCount: r.data.favoritesCount } : prev);
                   }
                 } else {
                   const r = await api.delete(`/api/favorites/${id}`);
+                  console.log('[announcement-details] Favorite removed:', r?.data);
                   setFavorited(false);
                   if (r?.data?.favoritesCount !== undefined) {
                     setAnnouncement(prev => prev ? { ...prev, favoritesCount: r.data.favoritesCount } : prev);
                   }
                 }
-              } catch (err) {
-                console.warn('Favorite toggle failed', err);
+              } catch (err: any) {
+                console.warn('[announcement-details] Favorite toggle failed', err?.response?.status, err?.response?.data || err?.message || err);
+
+                // If server returned 401, force user to login
+                const status = err?.response?.status;
+                if (status === 401) {
+                  Alert.alert(t.loginRequired, t.loginToFavorite, [
+                    { text: t.cancel, style: 'cancel' },
+                    { text: 'Login', onPress: () => router.push('/login') }
+                  ]);
+                } else {
+                  Alert.alert(t.error, t.favoriteFailed);
+                }
+              } finally {
+                setFavoriting(false);
               }
             }}
-            style={styles.actionCircle}
+            style={[styles.actionCircle, favoriting ? { opacity: 0.6 } : null]}
             accessibilityLabel="Favorite"
+            accessibilityState={{ busy: favoriting, selected: favorited }}
           >
-            <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={24} color={favorited ? '#E0245E' : tokens.colors.primary} />
+            {favoriting ? (
+              <ActivityIndicator size="small" color={tokens.colors.primary} />
+            ) : (
+              <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={24} color={favorited ? '#E0245E' : tokens.colors.primary} />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -382,27 +500,27 @@ export default function AnnouncementDetailsScreen() {
             <Ionicons name="share-social" size={24} color={tokens.colors.primary} />
           </TouchableOpacity>
         </View>
-        <ThemedText style={[styles.postedAt, { color: tokens.colors.muted }]}>Postat {new Date(announcement.createdAt).toLocaleDateString('ro-RO', { day: '2-digit', month: 'long', year: 'numeric' })}</ThemedText>
+        <ThemedText style={[styles.postedAt, { color: tokens.colors.muted }]}>{t.posted} {new Date(announcement.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'ro-RO', { day: '2-digit', month: 'long', year: 'numeric' })}</ThemedText>
         
-        <ThemedText style={[styles.sectionHeading, { color: isDark ? '#ffffff' : '#000000' }]}>Descriere</ThemedText>
+        <ThemedText style={[styles.sectionHeading, { color: isDark ? '#ffffff' : '#000000' }]}>{t.description}</ThemedText>
         <ThemedText style={[styles.description, { color: isDark ? '#ffffff' : '#000000' }]}>{announcement.description}</ThemedText>
         <View style={[styles.divider, { borderBottomColor: tokens.colors.border }]} />
         <View style={styles.metaRow}>          
-          <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>ID: {announcement._id.slice(-8)}</ThemedText>
-          {!!announcement.views && <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>{announcement.views} vizualizări</ThemedText>}
+          <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>{t.id} {announcement._id.slice(-8)}</ThemedText>
+          {!!announcement.views && <ThemedText style={[styles.metaItem, { color: isDark ? '#ffffff' : tokens.colors.muted }]}>{announcement.views} {t.views}</ThemedText>}
         </View>
       </View>
 
       {/* Seller Card */}
       <View style={[styles.sellerCard, { backgroundColor: isDark ? '#121212' : '#ffffff', borderColor: tokens.colors.border }]}>        
-        <ThemedText style={[styles.sellerHeading, { color: tokens.colors.text }]}>Informații vânzător</ThemedText>
+        <ThemedText style={[styles.sellerHeading, { color: tokens.colors.text }]}>{t.sellerInfo}</ThemedText>
 
         {/* Avatar + Name + Rating (tap to open seller profile) */}
         <TouchableOpacity
           onPress={goToProfile}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Deschide profilul vânzătorului"
+          accessibilityLabel={t.openSellerProfile}
           style={styles.sellerTopRow}
         >
           <View style={[styles.avatar, { backgroundColor: tokens.colors.elev, overflow: 'hidden' }]}>            
@@ -429,16 +547,16 @@ export default function AnnouncementDetailsScreen() {
                   />
                 ))}
                 <ThemedText style={[styles.ratingValue, { color: tokens.colors.text }]}>{Number(rating).toFixed(1)}</ThemedText>
-                <ThemedText style={[styles.ratingCount, { color: tokens.colors.muted }]}>({reviewCount} recenzii)</ThemedText>
+                <ThemedText style={[styles.ratingCount, { color: tokens.colors.muted }]}>({reviewCount} {t.reviews})</ThemedText>
               </View>
             ) : (
               sellerReviewsLoading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator size="small" color={tokens.colors.primary} />
-                  <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>se încarcă recenziile...</ThemedText>
+                  <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>{t.loadingReviews}</ThemedText>
                 </View>
               ) : (
-                <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>nu există review-uri</ThemedText>
+                <ThemedText style={[styles.sellerSub, { color: tokens.colors.muted }]}>{t.noReviews}</ThemedText>
               )
             )}
           </View>
@@ -446,7 +564,7 @@ export default function AnnouncementDetailsScreen() {
 
         {/* Contact label + Evaluate button */}
         <View style={styles.contactTopRow}>
-          <ThemedText style={[styles.contactLabel, { color: tokens.colors.muted }]}>Persoană de contact:</ThemedText>
+          <ThemedText style={[styles.contactLabel, { color: tokens.colors.muted }]}>{t.contactPerson}</ThemedText>
           <TouchableOpacity
             onPress={() => {
               setRatingModalVisible(true);
@@ -455,7 +573,7 @@ export default function AnnouncementDetailsScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="star-outline" size={16} color={tokens.colors.text} style={{ marginRight: 6 }} />
-            <ThemedText style={[styles.evaluateText, { color: tokens.colors.text }]}>Evaluează</ThemedText>
+            <ThemedText style={[styles.evaluateText, { color: tokens.colors.text }]}>{t.evaluate}</ThemedText>
           </TouchableOpacity>
         </View>
         <ThemedText style={[styles.contactValue, { color: tokens.colors.text }]}>{announcement.contactPerson}</ThemedText>
@@ -467,7 +585,7 @@ export default function AnnouncementDetailsScreen() {
           activeOpacity={0.9}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#ffffff" style={{ marginRight: 8 }} />
-          <ThemedText style={styles.primaryCtaText}>TRIMITE MESAJ</ThemedText>
+          <ThemedText style={styles.primaryCtaText}>{t.sendMessage}</ThemedText>
         </TouchableOpacity>
 
         {/* Phone Card */}
@@ -479,7 +597,7 @@ export default function AnnouncementDetailsScreen() {
           {!!announcement.contactPhone && (
             <TouchableOpacity onPress={() => setShowPhone((s) => !s)} activeOpacity={0.8}>
               <ThemedText style={[styles.showPhoneLink, { color: tokens.colors.primary }]}>
-                {showPhone ? 'ASCUNDE' : 'ARATĂ'}
+                {showPhone ? t.hide : t.show}
               </ThemedText>
             </TouchableOpacity>
           )}
@@ -491,7 +609,7 @@ export default function AnnouncementDetailsScreen() {
           style={[styles.outlineBtn, { borderColor: tokens.colors.border }]}
           activeOpacity={0.85}
         >
-          <ThemedText style={[styles.outlineBtnText, { color: tokens.colors.text }]}>VIZUALIZARE PROFIL</ThemedText>
+          <ThemedText style={[styles.outlineBtnText, { color: tokens.colors.text }]}>{t.viewProfile}</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -500,7 +618,7 @@ export default function AnnouncementDetailsScreen() {
       {/* Location Section */}
       <View style={styles.locationSection}>
         <View style={styles.locationHeader}>
-          <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>Locație</ThemedText>
+          <ThemedText style={[styles.sectionTitle, { color: tokens.colors.text }]}>{t.location}</ThemedText>
           <TouchableOpacity
             onPress={() => {
               if (!announcement.location) return;
@@ -509,7 +627,7 @@ export default function AnnouncementDetailsScreen() {
               Linking.openURL(url);
             }}
           >
-            <ThemedText style={{ color: tokens.colors.primary, fontSize: 13, fontWeight: '600' }}>Deschide Harta</ThemedText>
+            <ThemedText style={{ color: tokens.colors.primary, fontSize: 13, fontWeight: '600' }}>{t.openMap}</ThemedText>
           </TouchableOpacity>
         </View>
         {/* Map embed: iframe pe web, WebView pe mobile (funcționează în Expo Go) */}
@@ -519,25 +637,31 @@ export default function AnnouncementDetailsScreen() {
               const encoded = encodeURIComponent(announcement.location);
               // Try to read key from Expo constants (extra) or env var
               const key = (Constants?.expoConfig?.extra?.VITE_GOOGLE_MAPS_KEY as string) || (Constants?.manifest?.extra?.VITE_GOOGLE_MAPS_KEY as string) || process.env?.EXPO_PUBLIC_GOOGLE_MAPS_KEY || process.env?.VITE_GOOGLE_MAPS_KEY;
-              const mapUrl = key
-                ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}`
+
+              // Use embed API on web only; native uses maps.google.com embed to avoid referrer/API issues
+              const mapUrl = Platform.OS === 'web'
+                ? (key ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}` : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`)
                 : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`;
+
+              if (key && Platform.OS !== 'web') {
+                console.warn('[announcement-details] Google Maps API key is set but will not be used on native WebView to avoid referrer/billing issues.');
+              }
 
               if (Platform.OS === 'web') {
                 // Web: folosește iframe direct
                 return (
                   <View style={styles.mapInnerWrapper}>
-                    <iframe title="Locație" src={mapUrl} style={{ border: 0, width: '100%', height: '100%' }} loading="lazy" />
+                    <iframe title="Location" src={mapUrl} style={{ border: 0, width: '100%', height: '100%' }} loading="lazy" />
                   </View>
                 );
               }
 
-              // Mobile (iOS/Android): folosește WebView cu HTML care conține iframe
+              // Mobile (iOS/Android): use WebView with HTML containing iframe
               try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
                 const { WebView } = require('react-native-webview');
                 
-                // Creăm o pagină HTML simplă cu iframe-ul Google Maps
+                // Create a simple HTML page with Google Maps iframe
                 const htmlContent = `
                   <!DOCTYPE html>
                   <html>
@@ -555,14 +679,35 @@ export default function AnnouncementDetailsScreen() {
                   </html>
                 `;
                 
+                if (mapLoadFailed) {
+                  return (
+                    <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev, padding: 16, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name="alert-circle-outline" size={48} color={tokens.colors.placeholder} style={{ marginBottom: 8 }} />
+                      <ThemedText style={{ color: tokens.colors.text, fontSize: 18, textAlign: 'center', marginBottom: 8 }}>Hopa! A apărut o eroare.</ThemedText>
+                      <ThemedText style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>Această pagină nu a încărcat corect Google Maps. Vezi detaliile tehnice în consola JavaScript.</ThemedText>
+                      <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                        <TouchableOpacity onPress={() => { const q = encodeURIComponent(announcement.location); Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`); }} style={{ paddingVertical: 8, paddingHorizontal: 12, marginRight: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.colors.border }}>
+                          <ThemedText style={{ color: tokens.colors.primary }}>Deschide Harta</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setMapLoadFailed(false); setMapReloadKey(k => k + 1); }} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border }}>
+                          <ThemedText style={{ color: tokens.colors.text }}>Reîncearcă</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }
+
                 return (
                   <View style={styles.mapInnerWrapper}>
                     <WebView
+                      key={`map-${mapReloadKey}`}
                       source={{ html: htmlContent }}
                       style={styles.mapWebview}
                       startInLoadingState
                       javaScriptEnabled
                       domStorageEnabled
+                      onError={() => { console.warn('[announcement-details] Map WebView error'); setMapLoadFailed(true); }}
+                      onHttpError={() => { console.warn('[announcement-details] Map WebView HTTP error'); setMapLoadFailed(true); }}
                       renderLoading={() => (
                         <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}>
                           <ActivityIndicator size="small" color={tokens.colors.primary} />
@@ -576,7 +721,7 @@ export default function AnnouncementDetailsScreen() {
                 return (
                   <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}>
                     <Ionicons name="map-outline" size={48} color={tokens.colors.placeholder} style={{ marginBottom: 8 }} />
-                    <ThemedText style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>Harta nu este disponibilă</ThemedText>
+                    <ThemedText style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>{t.mapNotAvailable}</ThemedText>
                   </View>
                 );
               }
@@ -612,7 +757,7 @@ export default function AnnouncementDetailsScreen() {
           style={[StyleSheet.absoluteFill, styles.ratingModalOverlay, { zIndex: 1000 }]}
         >
           <View style={[styles.ratingModalCard, { backgroundColor: isDark ? '#121212' : tokens.colors.surface, borderColor: tokens.colors.border }]}>
-            <ThemedText style={[styles.ratingModalTitle, { color: tokens.colors.text }]}>Evaluează utilizatorul</ThemedText>
+            <ThemedText style={[styles.ratingModalTitle, { color: tokens.colors.text }]}>{t.evaluateUser}</ThemedText>
             <View style={styles.ratingStarsRow}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <TouchableOpacity key={i} onPress={() => setRatingScore(i + 1)} activeOpacity={0.8}>
@@ -629,14 +774,14 @@ export default function AnnouncementDetailsScreen() {
                 onChangeText={setRatingComment}
                 value={ratingComment}
                 style={[styles.ratingInput, { color: tokens.colors.text }]}
-                placeholder="Comentariu (opțional)"
+                placeholder={t.commentOptional}
                 placeholderTextColor={tokens.colors.placeholder}
               />
             </View>
 
             <View style={styles.ratingModalActions}>
               <TouchableOpacity onPress={() => setRatingModalVisible(false)} style={styles.ratingCancelBtn}>
-                <ThemedText style={[styles.ratingCancelText, { color: tokens.colors.primary }]}>ANULEAZĂ</ThemedText>
+                <ThemedText style={[styles.ratingCancelText, { color: tokens.colors.primary }]}>{t.cancel}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
@@ -654,7 +799,7 @@ export default function AnnouncementDetailsScreen() {
                     // Could re-fetch seller profile for accurate numbers
                   } catch (err) {
                     console.warn('Failed to submit review', err);
-                    alert('Nu am putut trimite recenzia. Încearcă din nou mai târziu.');
+                    alert(t.reviewFailed);
                   } finally {
                     setSubmittingRating(false);
                   }
@@ -662,7 +807,7 @@ export default function AnnouncementDetailsScreen() {
                 style={styles.ratingSubmitBtn}
                 activeOpacity={0.9}
               >
-                <ThemedText style={[styles.ratingSubmitText, { color: '#ffffff' }]}>{submittingRating ? 'TRIMITE...' : 'TRIMITE'}</ThemedText>
+                <ThemedText style={[styles.ratingSubmitText, { color: '#ffffff' }]}>{submittingRating ? t.sending : t.send}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>

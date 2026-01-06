@@ -1,13 +1,13 @@
 import React from 'react';
-import { ThemedView } from '../../components/themed-view';
-import { ThemedText } from '../../components/themed-text';
-import { StyleSheet, View, TouchableOpacity, Switch, ScrollView, Image, Platform, useWindowDimensions } from 'react-native';
+import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/themed-text';
+import { StyleSheet, View, TouchableOpacity, Switch, ScrollView, Image, Platform, useWindowDimensions, Modal, Text } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useLocale } from '../../src/context/LocaleContext';
-import { Modal, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import storage from '../../src/services/storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -76,8 +76,6 @@ export default function AccountScreen() {
   const accountRows: RowSpec[] = [
     { key: 'settings', label: t.settings, icon: 'settings-outline', action: () => router.push('/settings') },
     { key: 'my-ads', label: t.myAds, icon: 'megaphone-outline', action: () => router.push('/my-announcements') },
-    // Deschide ecranul dedicat de setări notificări (meniul complet deja implementat)
-    { key: 'notifications', label: t.notifications, icon: 'notifications-outline', action: () => router.push('/notification-settings') },
     { key: 'profile', label: t.profile, icon: 'person-outline', action: () => router.push('/profile') },
     { key: 'darkmode', label: t.darkMode, icon: 'moon-outline', type: 'switch' },
     { key: 'language', label: t.language, icon: 'language-outline', action: () => setLanguageModalOpen(true) },
@@ -301,21 +299,32 @@ export default function AccountScreen() {
           visible={confirmVisible}
           transparent
           animationType="fade"
+          presentationStyle="overFullScreen"
+          statusBarTranslucent={true}
           onRequestClose={() => setConfirmVisible(false)}
         >
-          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}> 
-            <View style={[styles.modalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            experimentalBlurMethod="dimezisBlurView"
+            style={[StyleSheet.absoluteFill, styles.modalOverlay, { zIndex: 1000 }]}
+          >
+            <View style={[styles.logoutModalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
+              <View style={[styles.modalIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}> 
+                <Ionicons name="log-out-outline" size={32} color={palette.danger} />
+              </View>
+
               <ThemedText style={[styles.modalTitle, { color: tokens.colors.text }]}>{t.logoutConfirmTitle}</ThemedText>
               <ThemedText style={[styles.modalMessage, { color: tokens.colors.muted }]}>{t.logoutConfirmMessage}</ThemedText>
               <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalBtnCancel]}
+                  style={[styles.modalButton, styles.modalButtonCancel, { backgroundColor: isDark ? tokens.colors.elev : tokens.colors.bg, borderColor: tokens.colors.border }]}
                   onPress={() => setConfirmVisible(false)}
                 >
-                  <ThemedText style={{ color: tokens.colors.text }}>{t.cancel}</ThemedText>
+                  <ThemedText style={[styles.modalButtonText, { color: tokens.colors.text }]}>{t.cancel}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalBtnConfirm, { backgroundColor: palette.emphasisBg }]}
+                  style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: palette.emphasisBg }]}
                   onPress={async () => {
                     try {
                       await logout();
@@ -327,57 +336,64 @@ export default function AccountScreen() {
                     }
                   }}
                 >
-                  <ThemedText style={{ color: '#ffffff' }}>{t.confirmLogout}</ThemedText>
+                  <ThemedText style={[styles.modalButtonText, { color: '#ffffff', fontWeight: '700' }]}>{t.confirmLogout}</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </BlurView>
         </Modal>
         {/* Language selector modal */}
         <Modal
           visible={languageModalOpen}
           transparent
           animationType="fade"
+          presentationStyle="overFullScreen"
+          statusBarTranslucent={true}
           onRequestClose={() => setLanguageModalOpen(false)}
         >
-          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}> 
-            <View style={[styles.modalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            experimentalBlurMethod="dimezisBlurView"
+            style={[StyleSheet.absoluteFill, styles.modalOverlay, { zIndex: 1000 }]}
+          >
+            <View style={[styles.logoutModalCard, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}> 
               <TouchableOpacity style={styles.closeButton} onPress={() => setLanguageModalOpen(false)}>
                 <Ionicons name="close" size={20} color={tokens.colors.muted} />
               </TouchableOpacity>
               <ThemedText style={[styles.modalTitle, { color: tokens.colors.text }]}>{t.selectLanguage}</ThemedText>
-                <View style={{ marginTop: 8 }}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { marginBottom: 8 }]}
-                    onPress={async () => {
-                      await setGlobalLocale('ro');
-                      setLanguageModalOpen(false);
-                      // Wait for modal close animation to complete before showing toast
-                      setTimeout(() => {
-                        setToastMessage(TRANSLATIONS.ro.languageChanged);
-                        setToastVisible(true);
-                      }, 300);
-                    }}
-                  >
-                    <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>Română</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { marginBottom: 8 }]}
-                    onPress={async () => {
-                      await setGlobalLocale('en');
-                      setLanguageModalOpen(false);
-                      // Wait for modal close animation to complete before showing toast
-                      setTimeout(() => {
-                        setToastMessage(TRANSLATIONS.en.languageChanged);
-                        setToastVisible(true);
-                      }, 300);
-                    }}
-                  >
-                    <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>English</ThemedText>
-                  </TouchableOpacity>
-                </View>
+              <View style={{ marginTop: 8, width: '100%' }}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { marginBottom: 8, backgroundColor: tokens.colors.elev, borderColor: tokens.colors.border }]}
+                  onPress={async () => {
+                    await setGlobalLocale('ro');
+                    setLanguageModalOpen(false);
+                    // Wait for modal close animation to complete before showing toast
+                    setTimeout(() => {
+                      setToastMessage(TRANSLATIONS.ro.languageChanged);
+                      setToastVisible(true);
+                    }, 300);
+                  }}
+                >
+                  <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>Română</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { marginBottom: 8, backgroundColor: tokens.colors.elev, borderColor: tokens.colors.border }]}
+                  onPress={async () => {
+                    await setGlobalLocale('en');
+                    setLanguageModalOpen(false);
+                    // Wait for modal close animation to complete before showing toast
+                    setTimeout(() => {
+                      setToastMessage(TRANSLATIONS.en.languageChanged);
+                      setToastVisible(true);
+                    }, 300);
+                  }}
+                >
+                  <ThemedText style={{ color: tokens.colors.text, fontSize: 16 }}>English</ThemedText>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </BlurView>
         </Modal>
       </ScrollView>
       
@@ -569,14 +585,34 @@ const styles = StyleSheet.create({
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    padding: 20,
   },
   modalCard: { 
     width: '100%', 
-    maxWidth: 420, 
-    borderRadius: 16, 
+    maxWidth: 340, 
+    borderRadius: 20, 
     padding: 24, 
     borderWidth: 1,
+  },
+  logoutModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   modalTitle: { 
     fontSize: 20, 
@@ -587,22 +623,34 @@ const styles = StyleSheet.create({
     fontSize: 15, 
     marginBottom: 20,
     lineHeight: 22,
+    textAlign: 'center',
   },
   modalButtons: { 
     flexDirection: 'row', 
-    justifyContent: 'flex-end', 
     gap: 12,
+    width: '100%',
   },
-  modalBtn: { 
-    paddingVertical: 12, 
-    paddingHorizontal: 20, 
-    borderRadius: 12,
+  modalButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalBtnCancel: { 
-    backgroundColor: 'transparent',
+  modalButtonCancel: {
+    borderWidth: 1.5,
   },
-  modalBtnConfirm: { 
-    paddingHorizontal: 24,
+  modalButtonConfirm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  modalButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   logoutTextContainer: {
     alignItems: 'center',
@@ -643,6 +691,14 @@ const styles = StyleSheet.create({
   },
   nightShift: {
     transform: [{ translateY: 8 }],
+  },
+  modalBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButton: {
     position: 'absolute',

@@ -60,3 +60,7 @@ Thumbs.db
 
 # Project-specific binaries
 backend/mitm-detector.exe
+
+# Firebase / Google services files (do NOT commit credentials)
+mobile-app/google-services.json
+**/google-services.json

@@ -694,9 +694,14 @@ export default function ProfileScreen() {
               (() => {
                 const encoded = encodeURIComponent(profileToShow.localitate);
                 const key = (Constants?.expoConfig?.extra?.VITE_GOOGLE_MAPS_KEY as string) || (Constants?.manifest?.extra?.VITE_GOOGLE_MAPS_KEY as string) || process.env?.EXPO_PUBLIC_GOOGLE_MAPS_KEY || process.env?.VITE_GOOGLE_MAPS_KEY;
-                const mapUrl = key
-                  ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}`
+                // Use embed API on web only; native uses maps.google.com embed to avoid referrer/API issues
+                const mapUrl = Platform.OS === 'web'
+                  ? (key ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}` : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`)
                   : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`;
+
+                if (key && Platform.OS !== 'web') {
+                  console.warn('[profile] Google Maps API key is set but will not be used on native WebView to avoid referrer/billing issues.');
+                }
 
                 if (Platform.OS === 'web') {
                   return (
@@ -709,6 +714,8 @@ export default function ProfileScreen() {
                 try {
                   // eslint-disable-next-line @typescript-eslint/no-var-requires
                   const { WebView } = require('react-native-webview');
+
+                  // Create HTML with iframe for Google Maps Embed API
                   const htmlContent = `
                     <!DOCTYPE html>
                     <html>
@@ -735,7 +742,7 @@ export default function ProfileScreen() {
                         javaScriptEnabled
                         domStorageEnabled
                         renderLoading={() => (
-                          <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}>
+                          <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}> 
                             <ActivityIndicator size="small" color={tokens.colors.primary} />
                           </View>
                         )}

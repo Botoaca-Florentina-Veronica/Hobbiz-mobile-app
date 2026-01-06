@@ -3,14 +3,11 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
-  Alert,
   View,
-  Text,
-  ScrollView,
-  TextInput,
   ActivityIndicator,
   Image,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { ThemedText } from '../components/themed-text';
 import { ThemedTextInput } from '../components/themed-text-input';
@@ -19,11 +16,76 @@ import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
 import { useAppTheme } from '../src/context/ThemeContext';
+import { useLocale } from '../src/context/LocaleContext';
 import api from '../src/services/api';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { findCategoryByLabel } from '../src/constants/categories';
 import { Toast } from '../components/ui/Toast';
-import { ProtectedRoute } from '../src/components/ProtectedRoute';
+
+const TRANSLATIONS = {
+  ro: {
+    title: 'Anunțuri arhivate',
+    searchPlaceholder: 'Caută după titlu, ID sau locație...',
+    category: 'Categorie',
+    all: 'Toate',
+    sort: 'Sortare',
+    results: 'rezultate',
+    searchLabel: 'Căutare',
+    sortMostRecent: 'Cele mai recente',
+    sortOldest: 'Cele mai vechi',
+    sortTitleAZ: 'Titlu A-Z',
+    sortTitleZA: 'Titlu Z-A',
+    noResults: 'Nu au fost găsite anunțuri cu criteriile selectate',
+    noAnnouncements: 'Nu ai încă niciun anunț arhivat',
+    unarchive: 'Dezarhivează',
+    delete: 'Șterge',
+    deleteTitle: 'Șterge anunț',
+    deleteMessage: 'Sigur vrei să ștergi acest anunț? Această acțiune nu poate fi anulată.',
+    yes: 'Da',
+    no: 'Nu',
+    cancel: 'Anulează',
+    unarchiveTitle: 'Dezarhivează anunț',
+    unarchiveMessage: "Ești sigur(ă) că vrei să dezarhivezi acest anunț?",
+    deleteSuccess: 'Anunțul a fost șters cu succes',
+    deleteError: 'Nu s-a putut șterge anunțul. Încearcă din nou',
+    unarchiveSuccess: 'Anunțul a fost dezarhivat cu succes',
+    unarchiveError: 'Nu s-a putut dezarhiva anunțul. Încearcă din nou',
+    loading: 'Se încarcă anunțurile arhivate...',
+    filterSearch: 'Căutare',
+    filterCategory: 'Categorie',
+  },
+  en: {
+    title: 'Archived Announcements',
+    searchPlaceholder: 'Search by title, ID, or location...',
+    category: 'Category',
+    all: 'All',
+    sort: 'Sort',
+    results: 'results',
+    searchLabel: 'Search',
+    sortMostRecent: 'Most Recent',
+    sortOldest: 'Oldest',
+    sortTitleAZ: 'Title A-Z',
+    sortTitleZA: 'Title Z-A',
+    noResults: 'No announcements found with the selected criteria',
+    noAnnouncements: "You don't have any archived announcements yet",
+    unarchive: 'Unarchive',
+    delete: 'Delete',
+    deleteTitle: 'Delete Announcement',
+    deleteMessage: 'Are you sure you want to delete this announcement? This action cannot be undone.',
+    yes: 'Yes',
+    no: 'No',
+    cancel: 'Cancel',
+    unarchiveTitle: 'Unarchive Announcement',
+    unarchiveMessage: "Are you sure you want to unarchive this announcement?",
+    deleteSuccess: 'Announcement deleted successfully',
+    deleteError: 'Could not delete the announcement. Please try again',
+    unarchiveSuccess: 'Announcement unarchived successfully',
+    unarchiveError: 'Could not unarchive the announcement. Please try again',
+    loading: 'Loading archived announcements...',
+    filterSearch: 'Search',
+    filterCategory: 'Category',
+  },
+};
 
 interface Announcement {
   _id: string;
@@ -42,6 +104,8 @@ export default function ArchivedAnnouncementsScreen() {
   const isNarrowTablet = isLarge && width >= 600 && width < 750;
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { isDark, tokens } = useAppTheme();
+  const { locale } = useLocale();
+  const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
   
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const containerBorderStyle = { borderWidth: isDark ? 1 : 0, borderColor: tokens.colors.borderNeutral } as const;
@@ -50,12 +114,11 @@ export default function ArchivedAnnouncementsScreen() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('Toate');
-  const [sortFilter, setSortFilter] = useState('cea mai recenta');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortFilter, setSortFilter] = useState('most-recent');
   const [activePickerType, setActivePickerType] = useState<'category' | 'sort' | null>(null);
   // Track per-card content heights so the left image can match the card height exactly
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
-  const [rowWidths, setRowWidths] = useState<Record<string, number>>({});
 
   // Confirm dialog state for delete
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
@@ -100,7 +163,7 @@ export default function ArchivedAnnouncementsScreen() {
 
   const uniqueCategories = useMemo(() => {
     const categories = announcements.map((a) => a.category).filter(Boolean);
-    return ['Toate', ...Array.from(new Set(categories))];
+    return ['all', ...Array.from(new Set(categories))];
   }, [announcements]);
 
   const filteredAndSortedAnnouncements = useMemo(() => {
@@ -118,28 +181,28 @@ export default function ArchivedAnnouncementsScreen() {
         );
       }
 
-      const matchesCategory = categoryFilter === 'Toate' || a.category === categoryFilter;
+      const matchesCategory = categoryFilter === 'all' || a.category === categoryFilter;
 
       return matchesSearch && matchesCategory;
     });
 
     filtered.sort((a, b) => {
       switch (sortFilter) {
-        case 'cea mai veche':
+        case 'oldest':
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case 'cea mai recenta':
+        case 'most-recent':
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case 'titlu_a_z':
-          return a.title.localeCompare(b.title, 'ro');
-        case 'titlu_z_a':
-          return b.title.localeCompare(a.title, 'ro');
+        case 'title-a-z':
+          return a.title.localeCompare(b.title, locale === 'en' ? 'en' : 'ro');
+        case 'title-z-a':
+          return b.title.localeCompare(a.title, locale === 'en' ? 'en' : 'ro');
         default:
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
 
     return filtered;
-  }, [announcements, searchTerm, categoryFilter, sortFilter]);
+  }, [announcements, searchTerm, categoryFilter, sortFilter, locale]);
 
   const handleDelete = (id: string) => {
     setAnnouncementToDelete(id);
@@ -154,12 +217,12 @@ export default function ArchivedAnnouncementsScreen() {
       setAnnouncements(announcements.filter((a) => a._id !== announcementToDelete));
       setDeleteDialogVisible(false);
       setAnnouncementToDelete(null);
-      showToast('Anunțul a fost șters cu succes', 'success');
+      showToast(t.deleteSuccess, 'success');
     } catch (e) {
       console.error('Delete error:', e);
       setDeleteDialogVisible(false);
       setAnnouncementToDelete(null);
-      showToast('Nu s-a putut șterge anunțul. Încearcă din nou', 'error');
+      showToast(t.deleteError, 'error');
     }
   };
 
@@ -181,12 +244,12 @@ export default function ArchivedAnnouncementsScreen() {
       setAnnouncements(announcements.filter((a) => a._id !== announcementToUnarchive));
       setUnarchiveDialogVisible(false);
       setAnnouncementToUnarchive(null);
-      showToast('Anunțul a fost dezarhivat cu succes', 'success');
+      showToast(t.unarchiveSuccess, 'success');
     } catch (e) {
       console.error('Unarchive error:', e);
       setUnarchiveDialogVisible(false);
       setAnnouncementToUnarchive(null);
-      showToast('Nu s-a putut dezarhiva anunțul. Încearcă din nou', 'error');
+      showToast(t.unarchiveError, 'error');
     }
   };
 
@@ -209,7 +272,7 @@ export default function ArchivedAnnouncementsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={tokens.colors.primary} />
-        <ThemedText style={styles.loadingText}>Se încarcă anunțurile arhivate...</ThemedText>
+        <ThemedText style={styles.loadingText}>{t.loading}</ThemedText>
       </View>
     );
   }
@@ -226,7 +289,7 @@ export default function ArchivedAnnouncementsScreen() {
             <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}>
               <Ionicons name="arrow-back" size={20} color={tokens.colors.text} />
             </TouchableOpacity>
-            <ThemedText style={[styles.headerTitle, { color: tokens.colors.text }]}>Anunțuri arhivate</ThemedText>
+            <ThemedText style={[styles.headerTitle, { color: tokens.colors.text }]}>{t.title}</ThemedText>
           </View>
         </View>
 
@@ -247,7 +310,7 @@ export default function ArchivedAnnouncementsScreen() {
               <Ionicons name="search" size={20} color={tokens.colors.muted} style={styles.searchIcon} />
               <ThemedTextInput
                 style={styles.searchInput}
-                placeholder="Caută după titlu, ID sau locație..."
+                placeholder={t.searchPlaceholder}
                 placeholderTextColor={tokens.colors.placeholder}
                 value={searchTerm}
                 onChangeText={setSearchTerm}
@@ -270,7 +333,7 @@ export default function ArchivedAnnouncementsScreen() {
                   styles.filterButtonText,
                   activePickerType === 'category' && styles.filterButtonTextActive,
                 ]} numberOfLines={1}>
-                  {categoryFilter === 'Toate' ? 'Categorie' : categoryFilter}
+                  {categoryFilter === 'all' ? t.category : categoryFilter}
                 </ThemedText>
                 <Ionicons 
                   name={activePickerType === 'category' ? 'chevron-up' : 'chevron-down'} 
@@ -293,7 +356,7 @@ export default function ArchivedAnnouncementsScreen() {
                   styles.filterButtonText,
                   activePickerType === 'sort' && styles.filterButtonTextActive,
                 ]} numberOfLines={1}>
-                  Sortare
+                  {t.sort}
                 </ThemedText>
                 <Ionicons 
                   name={activePickerType === 'sort' ? 'chevron-up' : 'chevron-down'} 
@@ -304,29 +367,29 @@ export default function ArchivedAnnouncementsScreen() {
 
               {/* Results Count */}
               <View style={styles.resultsCount}>
-                <ThemedText style={styles.resultsText}>{filteredAndSortedAnnouncements.length} rezultate</ThemedText>
+                <ThemedText style={styles.resultsText}>{filteredAndSortedAnnouncements.length} {t.results}</ThemedText>
               </View>
             </View>
 
 
 
             {/* Active Filters */}
-            {(searchTerm || categoryFilter !== 'Toate') && (
+            {(searchTerm || categoryFilter !== 'all') && (
               <View style={styles.activeFilters}>
                 {searchTerm && (
                   <View style={styles.chip}>
                     <ThemedText style={styles.chipText}>
-                      Căutare: &quot;{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}&quot;
+                      {t.filterSearch}: &quot;{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}&quot;
                     </ThemedText>
                     <TouchableOpacity onPress={() => setSearchTerm('')}>
                       <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
                     </TouchableOpacity>
                   </View>
                 )}
-                {categoryFilter !== 'Toate' && (
+                {categoryFilter !== 'all' && (
                   <View style={styles.chip}>
-                    <ThemedText style={styles.chipText}>Categorie: {categoryFilter}</ThemedText>
-                    <TouchableOpacity onPress={() => setCategoryFilter('Toate')}>
+                    <ThemedText style={styles.chipText}>{t.filterCategory}: {categoryFilter}</ThemedText>
+                    <TouchableOpacity onPress={() => setCategoryFilter('all')}>
                       <Ionicons name="close-circle" size={16} color={tokens.colors.primary} />
                     </TouchableOpacity>
                   </View>
@@ -341,9 +404,9 @@ export default function ArchivedAnnouncementsScreen() {
           <View style={styles.emptyState}>
             <Ionicons name="albums-outline" size={64} color={tokens.colors.placeholder} />
             <ThemedText style={styles.emptyText}>
-              {searchTerm || categoryFilter !== 'Toate'
-                ? 'Nu au fost găsite anunțuri cu criteriile selectate'
-                : 'Nu ai încă niciun anunț arhivat'}
+              {searchTerm || categoryFilter !== 'all'
+                ? t.noResults
+                : t.noAnnouncements}
             </ThemedText>
           </View>
         ) : (
@@ -393,17 +456,11 @@ export default function ArchivedAnnouncementsScreen() {
                 ]}
                 onLayout={(e) => {
                   const h = e.nativeEvent.layout.height;
-                  const w = e.nativeEvent.layout.width;
                   setRowHeights((prev) => {
                     const curr = prev[announcement._id];
                     // Avoid unnecessary re-renders
                     if (curr && Math.abs(curr - h) < 1) return prev;
                     return { ...prev, [announcement._id]: h };
-                  });
-                  setRowWidths((prev) => {
-                    const currW = prev[announcement._id];
-                    if (currW && Math.abs(currW - w) < 1) return prev;
-                    return { ...prev, [announcement._id]: w };
                   });
                 }}
               >
@@ -439,7 +496,7 @@ export default function ArchivedAnnouncementsScreen() {
                       handleUnarchive(announcement);
                     }}
                   >
-                    <ThemedText numberOfLines={1} style={styles.primaryButtonText}>Dezarhivează</ThemedText>
+                    <ThemedText numberOfLines={1} style={styles.primaryButtonText}>{t.unarchive}</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.fullWidthButton, styles.dangerButton, isDark ? { backgroundColor: '#121212' } : {}]}
@@ -461,10 +518,10 @@ export default function ArchivedAnnouncementsScreen() {
       {/* Delete confirmation dialog */}
       <ConfirmDialog
         visible={deleteDialogVisible}
-        title="Șterge anunț"
-        message="Ești sigur că vrei să ștergi definitiv acest anunț? Această acțiune nu poate fi anulată."
-        confirmText="Șterge"
-        cancelText="Anulează"
+        title={t.deleteTitle}
+        message={t.deleteMessage}
+        confirmText={t.delete}
+        cancelText={t.cancel}
         icon="trash-outline"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
@@ -473,10 +530,10 @@ export default function ArchivedAnnouncementsScreen() {
       {/* Unarchive confirmation dialog */}
       <ConfirmDialog
         visible={unarchiveDialogVisible}
-        title="Dezarhivează anunț"
-        message="Ești sigur că vrei să dezarhivezi acest anunț? Va redeveni vizibil în 'Anunțurile mele'."
-        confirmText="Da"
-        cancelText="Nu"
+        title={t.unarchiveTitle}
+        message={t.unarchiveMessage}
+        confirmText={t.yes}
+        cancelText={t.no}
         icon="folder-open-outline"
         onConfirm={confirmUnarchive}
         onCancel={cancelUnarchive}
@@ -507,7 +564,7 @@ export default function ArchivedAnnouncementsScreen() {
               {activePickerType === 'category' ? (
                 // Category options
                 uniqueCategories.map((cat) => {
-                  const catDef = cat === 'Toate' ? undefined : findCategoryByLabel(cat);
+                  const catDef = cat === 'all' ? undefined : findCategoryByLabel(cat);
                   return (
                     <TouchableOpacity
                       key={cat}
@@ -522,7 +579,7 @@ export default function ArchivedAnnouncementsScreen() {
                       }}
                     >
                       <View style={styles.modalOptionLeft}>
-                        {cat === 'Toate' ? (
+                        {cat === 'all' ? (
                           <Ionicons name="apps" size={20} color={categoryFilter === cat ? tokens.colors.primary : tokens.colors.muted} />
                         ) : catDef?.image ? (
                           <Image source={catDef.image} style={{ width: 20, height: 20, borderRadius: 4 }} resizeMode="contain" />
@@ -535,7 +592,7 @@ export default function ArchivedAnnouncementsScreen() {
                             categoryFilter === cat && styles.modalOptionTextSelected,
                           ]}
                         >
-                          {cat}
+                          {cat === 'all' ? t.all : cat}
                         </ThemedText>
                       </View>
                       {categoryFilter === cat && (
@@ -547,10 +604,10 @@ export default function ArchivedAnnouncementsScreen() {
               ) : (
                 // Sort options
                 [
-                  { value: 'cea mai recenta', label: 'Cele mai recente', icon: 'arrow-down' },
-                  { value: 'cea mai veche', label: 'Cele mai vechi', icon: 'arrow-up' },
-                  { value: 'titlu_a_z', label: 'Titlu A-Z', icon: 'text' },
-                  { value: 'titlu_z_a', label: 'Titlu Z-A', icon: 'text' },
+                  { value: 'most-recent', label: t.sortMostRecent, icon: 'arrow-down' },
+                  { value: 'oldest', label: t.sortOldest, icon: 'arrow-up' },
+                  { value: 'title-a-z', label: t.sortTitleAZ, icon: 'text' },
+                  { value: 'title-z-a', label: t.sortTitleZA, icon: 'text' },
                 ].map((option) => (
                   <TouchableOpacity
                     key={option.value}
