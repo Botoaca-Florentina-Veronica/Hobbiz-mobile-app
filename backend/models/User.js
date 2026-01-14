@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "Announcement" }],
   // Reviews left for this user - stored as references to Review documents for clarity and fast lookup
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
+  // Collaborations - stores user IDs with whom this user has agreed to collaborate
+  collaborations: [{ type: String }],
   notificationSettings: {
     email: { type: Boolean, default: true },
     push: { type: Boolean, default: true },

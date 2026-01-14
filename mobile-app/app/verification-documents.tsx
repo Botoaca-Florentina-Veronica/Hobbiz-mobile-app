@@ -410,13 +410,19 @@ export default function VerificationDocumentsScreen() {
     // Modal Styles
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)',
       justifyContent: 'flex-end',
     },
     modalContent: {
+      backgroundColor: isDark ? tokens.colors.surface : '#FFFFFF',
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       maxHeight: '80%',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 8,
+      elevation: 5,
     },
     modalHeader: {
       flexDirection: 'row',
@@ -424,22 +430,29 @@ export default function VerificationDocumentsScreen() {
       alignItems: 'center',
       padding: 20,
       borderBottomWidth: 1,
-      borderBottomColor: tokens.colors.border,
+      borderBottomColor: isDark ? tokens.colors.border : '#E0E0E0',
+      backgroundColor: isDark ? tokens.colors.surface : '#F8F9FA',
     },
     modalTitle: {
       fontSize: 18,
       fontWeight: '700',
+      color: tokens.colors.text,
     },
     inputLabel: {
       fontSize: 14,
       fontWeight: '600',
       marginBottom: 8,
       marginTop: 16,
+      color: isDark ? tokens.colors.text : '#2C3E50',
     },
     modalInput: {
       borderRadius: 10,
       padding: 12,
       fontSize: 16,
+      backgroundColor: isDark ? '#333' : '#F5F5F5',
+      color: tokens.colors.text,
+      borderWidth: 1,
+      borderColor: isDark ? '#444' : '#E0E0E0',
     },
     textArea: {
       height: 100,
@@ -455,11 +468,13 @@ export default function VerificationDocumentsScreen() {
       paddingVertical: 8,
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
+      borderColor: isDark ? tokens.colors.border : '#D0D0D0',
+      backgroundColor: isDark ? 'transparent' : '#FFFFFF',
     },
     typeOptionText: {
       fontSize: 12,
       fontWeight: '600',
+      color: tokens.colors.text,
     },
   });
 
@@ -651,8 +666,8 @@ export default function VerificationDocumentsScreen() {
                 value={newDocName}
                 onChangeText={setNewDocName}
                 placeholder="Ex: Diplomă Bac, Certificat Google..."
-                placeholderTextColor={tokens.colors.muted}
-                style={[styles.modalInput, { backgroundColor: isDark ? '#333' : '#f5f5f5' }]}
+                placeholderTextColor={isDark ? tokens.colors.muted : '#999999'}
+                style={styles.modalInput}
               />
 
               <ThemedText style={styles.inputLabel}>Tip Document</ThemedText>
@@ -681,14 +696,25 @@ export default function VerificationDocumentsScreen() {
                 value={newDocDesc}
                 onChangeText={setNewDocDesc}
                 placeholder="Adaugă detalii suplimentare..."
-                placeholderTextColor={tokens.colors.muted}
+                placeholderTextColor={isDark ? tokens.colors.muted : '#999999'}
                 multiline
                 numberOfLines={3}
-                style={[styles.modalInput, styles.textArea, { backgroundColor: isDark ? '#333' : '#f5f5f5' }]}
+                style={[styles.modalInput, styles.textArea]}
               />
 
               <TouchableOpacity
-                style={[styles.uploadButton, { marginHorizontal: 0, marginTop: 20 }]}
+                style={[
+                  styles.uploadButton, 
+                  { 
+                    marginHorizontal: 0, 
+                    marginTop: 20,
+                    shadowColor: tokens.colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0.3 : 0.25,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }
+                ]}
                 onPress={confirmUpload}
                 disabled={uploading}
               >
@@ -728,10 +754,10 @@ export default function VerificationDocumentsScreen() {
                 value={rejectionReason}
                 onChangeText={setRejectionReason}
                 placeholder="Ex: Document neclar, expirat..."
-                placeholderTextColor={tokens.colors.muted}
+                placeholderTextColor={isDark ? tokens.colors.muted : '#999999'}
                 multiline
                 numberOfLines={4}
-                style={[styles.modalInput, styles.textArea, { backgroundColor: isDark ? '#333' : '#f5f5f5' }]}
+                style={[styles.modalInput, styles.textArea]}
               />
 
               <TouchableOpacity

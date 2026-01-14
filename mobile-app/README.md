@@ -56,6 +56,7 @@ Join our community of developers creating universal apps.
 Aplicația se conectează la backend-ul Hobbiz. Configurarea se face în `src/services/api.ts`.
 
 **Default URLs**:
+
 - Android Emulator: `http://10.0.2.2:5000`
 - iOS Simulator: `http://localhost:5000`
 - Physical Device: trebuie setat `EXPO_PUBLIC_API_URL`
@@ -120,12 +121,14 @@ mobile-app/
 ## ✨ Funcționalități Implementate
 
 ### 🔐 Autentificare
+
 - Login cu email + parolă
 - Token JWT salvat securizat (expo-secure-store)
 - Auto-restore sesiune la restart
 - Logout cu confirmare
 
 ### 📢 Anunțurile Mele (NEW)
+
 - **Listare completă** a anunțurilor utilizatorului
 - **Căutare** după titlu, ID sau locație
 - **Filtrare** după categorie
@@ -136,12 +139,14 @@ mobile-app/
 - **Responsive** + safe area insets
 
 ### 🎨 Tematizare
+
 - Light/Dark mode toggle
 - Culori brand Hobbiz (#355070, #F8B195)
 - Theme context pentru consistență
 - Animații smooth între teme
 
 ### 🧭 Navigație
+
 - Tab bar custom cu 5 secțiuni
 - Stack navigation pentru flow-uri secundare
 - Back button handling
@@ -152,24 +157,28 @@ mobile-app/
 ## 🎨 Design System
 
 ### Culori Brand
+
 ```typescript
-primary: '#355070'        // Albastru Hobbiz
-secondary: '#6c757d'      // Gri
-accent: '#F8B195'         // Coral/Salmon
-danger: '#dc3545'         // Roșu
-success: '#28a745'        // Verde
+primary: "#355070"; // Albastru Hobbiz
+secondary: "#6c757d"; // Gri
+accent: "#F8B195"; // Coral/Salmon
+danger: "#dc3545"; // Roșu
+success: "#28a745"; // Verde
 ```
 
 ### Tipografie
+
 - Font sizes: 11-32px (xs → 5xl)
 - Font weights: 400-800
 - Line heights: 1.2-1.75
 
 ### Spacing
+
 - Scale: 4-48px (xs → 5xl)
 - Consistent gap/padding folosind `Spacing` din `src/theme/brand.ts`
 
 ### Shadows
+
 - Platform-specific (iOS shadowOffset/shadowOpacity, Android elevation)
 - 4 nivele: sm, md, lg, xl
 
@@ -180,11 +189,13 @@ success: '#28a745'        // Verde
 ### Teste manuale
 
 1. **Autentificare**
+
    ```bash
    # Navigare: Login → introdu credențiale → Success
    ```
 
 2. **Anunțurile mele**
+
    ```bash
    # Navigare: Cont → Anunțurile mele
    # Test: căutare, filtrare, sortare, delete
@@ -198,6 +209,7 @@ success: '#28a745'        // Verde
 ### Debug API
 
 Verifică console-ul Expo pentru:
+
 ```
 [mobile-app] API baseURL = http://192.168.1.10:5000
 ```

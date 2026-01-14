@@ -83,6 +83,7 @@ interface Message {
   _id: string;
   conversationId: string;
   senderId: string;
+  destinatarId?: string;
   text?: string;
   image?: string;
   createdAt: string;
@@ -91,6 +92,12 @@ interface Message {
   replyTo?: { messageId: string; senderId: string; senderName: string; text?: string; image?: string };
   reactions?: Array<{ userId: string; emoji: string }>;
   deleted?: boolean;
+  messageType?: 'text' | 'collaboration_request';
+  collaborationData?: {
+    participants?: string[];
+    acceptedBy?: string[];
+    declinedBy?: string[];
+  };
 }
 
 const TRANSLATIONS = {
@@ -149,6 +156,20 @@ const TRANSLATIONS = {
     loadingConversations: 'Se încarcă conversațiile...',
     noConversations: 'Nu ai conversații',
     startWriting: 'E momentul tău Eminescu, începe să scrii!',
+
+    collaborate: 'Colaborează',
+    collaborateConfirmTitle: 'Cerere de colaborare',
+    collaborateConfirmMessage:
+      'Vrei să trimiți o cerere de colaborare? După ce este acceptată de amândoi, veți putea lăsa recenzii unul altuia.',
+    collaborationRequestText: 'Vrei să colaborăm?',
+    collaborationPending: 'În așteptare',
+    collaborationAccepted: 'Confirmată',
+    collaborationDeclined: 'Refuzată',
+    collaborationYouAcceptedWaiting: 'Ai acceptat. Așteptăm confirmarea celuilalt utilizator.',
+    collaborationAlreadyPending: 'Există deja o cerere de colaborare în așteptare.',
+    collaborationAlreadyAccepted: 'Colaborarea este deja confirmată.',
+    accept: 'Acceptă',
+    decline: 'Refuză',
   },
   en: {
     loadingMessages: 'Loading messages...',
@@ -205,6 +226,20 @@ const TRANSLATIONS = {
     loadingConversations: 'Loading conversations...',
     noConversations: 'You have no conversations',
     startWriting: 'It\'s your moment, start writing!',
+
+    collaborate: 'Collaborate',
+    collaborateConfirmTitle: 'Collaboration request',
+    collaborateConfirmMessage:
+      'Send a collaboration request? After both users accept, you will be able to leave reviews for each other.',
+    collaborationRequestText: 'Do you want to collaborate?',
+    collaborationPending: 'Pending',
+    collaborationAccepted: 'Confirmed',
+    collaborationDeclined: 'Declined',
+    collaborationYouAcceptedWaiting: 'You accepted. Waiting for the other user to confirm.',
+    collaborationAlreadyPending: 'There is already a pending collaboration request.',
+    collaborationAlreadyAccepted: 'Collaboration is already confirmed.',
+    accept: 'Accept',
+    decline: 'Decline',
   },
 };
 
@@ -250,8 +285,222 @@ export default function ConversationScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
+  const [confirmCollabVisible, setConfirmCollabVisible] = useState(false);
+  const [sendingCollab, setSendingCollab] = useState(false);
 
   const width = Dimensions.get('window').width;
+
+  const getCollaborationMessageStatus = useCallback((message: Message) => {
+    const acceptedBy = (message.collaborationData?.acceptedBy || []).map(String);
+    const declinedBy = (message.collaborationData?.declinedBy || []).map(String);
+    const isDeclined = declinedBy.length > 0;
+    const isAccepted = acceptedBy.length >= 2;
+    return { acceptedBy, declinedBy, isDeclined, isAccepted };
+  }, []);
+
+  const isCollaborationRequestMessage = useCallback((message: Message) => {
+    if (!message) return false;
+    return (
+      message.messageType === 'collaboration_request' ||
+      String(message.text || '').trim() === 'COLLABORATION_REQUEST'
+    );
+  }, []);
+
+  const findExistingCollaborationRequest = useCallback(() => {
+    const collabMessages = messages.filter((m) => isCollaborationRequestMessage(m));
+    const latest = [...collabMessages].reverse()[0] || null;
+    if (collabMessages.length === 0) {
+      return { latest: null as Message | null, accepted: false, pending: false };
+    }
+
+    const accepted = collabMessages.some((m) => getCollaborationMessageStatus(m).isAccepted);
+    const pending =
+      !accepted &&
+      collabMessages.some((m) => {
+        const s = getCollaborationMessageStatus(m);
+        return !s.isAccepted && !s.isDeclined;
+      });
+
+    return { latest, accepted, pending };
+  }, [messages, getCollaborationMessageStatus, isCollaborationRequestMessage]);
+
+  const handleSendCollaborationRequest = async () => {
+    if (!userId || !selectedConversation || sendingCollab) return;
+
+    const existing = findExistingCollaborationRequest();
+    if (existing.accepted) {
+      setToastMessage(t.collaborationAlreadyAccepted);
+      setToastType('info');
+      setToastVisible(true);
+      return;
+    }
+    if (existing.pending) {
+      setToastMessage(t.collaborationAlreadyPending);
+      setToastType('info');
+      setToastVisible(true);
+      return;
+    }
+
+    setConfirmCollabVisible(true);
+  };
+
+  const confirmSendCollaborationRequest = async () => {
+    if (!userId || !selectedConversation || sendingCollab) return;
+    const otherId = selectedConversation.otherParticipant?.id;
+    if (!otherId) return;
+
+    setConfirmCollabVisible(false);
+    setSendingCollab(true);
+
+    const tempMessage: Message = {
+      _id: `tmp-collab-${Date.now()}`,
+      conversationId: selectedConversation.conversationId,
+      senderId: userId,
+      destinatarId: otherId,
+      text: t.collaborationRequestText,
+      createdAt: new Date().toISOString(),
+      senderInfo: { firstName: 'Tu', lastName: '' },
+      messageType: 'collaboration_request',
+      collaborationData: {
+        participants: [String(userId), String(otherId)],
+        acceptedBy: [String(userId)],
+        declinedBy: [],
+      },
+    };
+
+    setMessages((prev) => [...prev, tempMessage]);
+
+    try {
+      const isSeller = String(userId) === String(selectedConversation.announcementOwnerId);
+      const senderRole = isSeller ? 'vanzator' : 'cumparator';
+
+      const payload: any = {
+        conversationId: selectedConversation.conversationId,
+        senderId: userId,
+        senderRole,
+        destinatarId: otherId,
+        text: 'COLLABORATION_REQUEST',
+        messageType: 'collaboration_request',
+        collaborationData: {
+          participants: [String(userId), String(otherId)],
+          acceptedBy: [String(userId)],
+          declinedBy: [],
+        },
+        ...(selectedConversation.announcementId ? { announcementId: selectedConversation.announcementId } : {}),
+      };
+
+      const response = await api.post('/api/messages', payload);
+      if (response.data && response.data._id) {
+        setMessages((prev) => prev.map((m) => (m._id === tempMessage._id ? { ...response.data, senderInfo: tempMessage.senderInfo } : m)));
+      }
+    } catch (error) {
+      console.error('Error sending collaboration request:', error);
+      setMessages((prev) => prev.filter((m) => m._id !== tempMessage._id));
+      Alert.alert(t.error, t.sendMessageError);
+    } finally {
+      setSendingCollab(false);
+    }
+  };
+
+  const handleCollaborationResponse = async (messageId: string, accept: boolean) => {
+    if (!messageId) return;
+    try {
+      const res = await api.post(`/api/messages/${encodeURIComponent(String(messageId))}/collaboration-response`, { accept });
+      const updated = res.data;
+      if (updated && updated._id) {
+        setMessages((prev) => prev.map((m) => (m._id === updated._id ? { ...m, ...updated } : m)));
+      }
+    } catch (err) {
+      console.error('Collaboration response error:', err);
+      Alert.alert(t.error, t.sendMessageError);
+    }
+  };
+
+  const renderCollaborationBody = (message: Message, isOwn: boolean) => {
+    const { acceptedBy, declinedBy, isAccepted, isDeclined } = getCollaborationMessageStatus(message);
+    const me = String(userId || '');
+    const iAccepted = acceptedBy.includes(me);
+    const iDeclined = declinedBy.includes(me);
+    const canRespond = !isAccepted && !isDeclined && !iAccepted && !iDeclined;
+
+    const statusText = isAccepted
+      ? t.collaborationAccepted
+      : isDeclined
+        ? t.collaborationDeclined
+        : `${t.collaborationPending} (${acceptedBy.length}/2)`;
+
+    return (
+      <View style={styles.collabContainer}>
+        <ThemedText
+          style={[
+            styles.collabTitle,
+            { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.text },
+          ]}
+        >
+          {t.collaborationRequestText}
+        </ThemedText>
+        <ThemedText
+          style={[
+            styles.collabStatus,
+            { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.muted },
+          ]}
+        >
+          {statusText}
+        </ThemedText>
+
+        {iAccepted && !isAccepted && !isDeclined ? (
+          <ThemedText
+            style={[
+              styles.collabHint,
+              { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.muted },
+            ]}
+          >
+            {t.collaborationYouAcceptedWaiting}
+          </ThemedText>
+        ) : null}
+
+        {canRespond ? (
+          <View style={styles.collabButtonsRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleCollaborationResponse(message._id, true)}
+              style={[
+                styles.collabBtn,
+                {
+                  backgroundColor: tokens.colors.primary,
+                  borderColor: tokens.colors.primary,
+                },
+              ]}
+            >
+              <ThemedText style={[styles.collabBtnText, { color: tokens.colors.primaryContrast }]}>
+                {t.accept}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleCollaborationResponse(message._id, false)}
+              style={[
+                styles.collabBtn,
+                {
+                  backgroundColor: 'transparent',
+                  borderColor: tokens.colors.border,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.collabBtnText,
+                  { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.text },
+                ]}
+              >
+                {t.decline}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
 
   const hexToRgba = (hex: string, alpha = 1) => {
     if (!hex) return `rgba(0,0,0,${alpha})`;
@@ -942,34 +1191,47 @@ export default function ConversationScreen() {
         ]}>
           <View style={styles.headerCenter}>
             <View style={styles.headerTitleRow}>
-              <TouchableOpacity 
-                onPress={() => {
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                    router.replace('/(tabs)/chat');
-                  }
-                }} 
-                style={styles.backBtnClean}
-              >
-                <Ionicons name="arrow-back" size={26} color={tokens.colors.text} />
-              </TouchableOpacity>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace('/(tabs)/chat');
+                    }
+                  }} 
+                  style={styles.backBtnClean}
+                >
+                  <Ionicons name="arrow-back" size={26} color={tokens.colors.text} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    const otherId = selectedConversation.id || selectedConversation.otherParticipant?.id;
+                    if (!otherId) return;
+                    try {
+                      router.push(`/profile?userId=${encodeURIComponent(String(otherId))}`);
+                    } catch (e) {}
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: selectedConversation.participantAvatar || getAvatarFallback(selectedConversation.participantName) }}
+                    style={styles.headerAvatarClean}
+                  />
+                  <ThemedText style={[styles.headerNameClean, isDark ? styles.headerNameCleanDark : undefined]} numberOfLines={1}>
+                    {selectedConversation.participantName}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
-                onPress={() => {
-                  const otherId = selectedConversation.id || selectedConversation.otherParticipant?.id;
-                  if (!otherId) return;
-                  try {
-                    router.push(`/profile?userId=${encodeURIComponent(String(otherId))}`);
-                  } catch (e) {}
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center' }}
-                activeOpacity={0.8}
+                onPress={handleSendCollaborationRequest}
+                disabled={sendingCollab}
+                activeOpacity={0.85}
+                style={[styles.headerActionBtn, { opacity: sendingCollab ? 0.5 : 1 }]}
               >
-                <Image
-                  source={{ uri: selectedConversation.participantAvatar || getAvatarFallback(selectedConversation.participantName) }}
-                  style={styles.headerAvatarClean}
-                />
-                <ThemedText style={[styles.headerNameClean, isDark ? styles.headerNameCleanDark : undefined]}>{selectedConversation.participantName}</ThemedText>
+                <Ionicons name="people-outline" size={22} color={tokens.colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -996,10 +1258,6 @@ export default function ConversationScreen() {
               </View>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={[styles.moreBtn, styles.moreBtnTop, { top: insets.top + 12 }]}>
-            <Ionicons name="ellipsis-vertical" size={22} color={tokens.colors.text} />
-          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -1160,18 +1418,24 @@ export default function ConversationScreen() {
                                 </View>
                               )}
                               
-                              {message.text && (
-                                <ThemedText style={[styles.messageTextClean, { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.text }] }>
-                                  {message.text}
-                                </ThemedText>
-                              )}
-                              {message.image && (
-                                <TouchableOpacity
-                                  activeOpacity={0.85}
-                                  onPress={() => handleOpenImage(message.image)}
-                                >
-                                  <Image source={{ uri: message.image }} style={[styles.messageImage, { borderRadius: 12 }]} resizeMode="cover" />
-                                </TouchableOpacity>
+                              {isCollaborationRequestMessage(message) ? (
+                                renderCollaborationBody(message, isOwn)
+                              ) : (
+                                <>
+                                  {message.text && (
+                                    <ThemedText style={[styles.messageTextClean, { color: isOwn && isDark ? tokens.colors.primaryContrast : tokens.colors.text }] }>
+                                      {message.text}
+                                    </ThemedText>
+                                  )}
+                                  {message.image && (
+                                    <TouchableOpacity
+                                      activeOpacity={0.85}
+                                      onPress={() => handleOpenImage(message.image)}
+                                    >
+                                      <Image source={{ uri: message.image }} style={[styles.messageImage, { borderRadius: 12 }]} resizeMode="cover" />
+                                    </TouchableOpacity>
+                                  )}
+                                </>
                               )}
                               {isOwn && (
                                 <Ionicons
@@ -1537,6 +1801,17 @@ export default function ConversationScreen() {
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteVisible(false)}
         />
+        <ConfirmDialog
+          visible={confirmCollabVisible}
+          title={t.collaborateConfirmTitle}
+          message={t.collaborateConfirmMessage}
+          confirmText={t.collaborate}
+          cancelText={t.cancel}
+          confirmColor={tokens.colors.primary}
+          icon="people-outline"
+          onConfirm={confirmSendCollaborationRequest}
+          onCancel={() => setConfirmCollabVisible(false)}
+        />
       </KeyboardAvoidingView>
     </ProtectedRoute>
   );
@@ -1599,14 +1874,58 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 14,
     marginLeft: 0,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  headerActionBtn: {
+    padding: 8,
+    marginLeft: 10,
+    borderRadius: 12,
   },
   headerAvatarClean: {
     width: 44,
     height: 44,
     borderRadius: 22,
     marginRight: 10,
+  },
+
+  collabContainer: {
+    gap: 8,
+  },
+  collabTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  collabStatus: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  collabHint: {
+    fontSize: 12,
+  },
+  collabButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  collabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collabBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   headerSeparator: {
     height: 1,
