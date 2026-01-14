@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import api from '../src/services/api';
 import { useLocale } from '../src/context/LocaleContext';
 import { Toast } from '../components/ui/Toast';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { localitatiPeJudet } from '../assets/comunePeJudet';
 
 interface UserAnnouncement {
@@ -155,6 +156,14 @@ export default function ProfileScreen() {
   const [toastVisible, setToastVisible] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
   const [toastType, setToastType] = React.useState<'success' | 'error' | 'info'>('success');
+
+  // Confirmation Dialog states
+  const [confirmVisible, setConfirmVisible] = React.useState(false);
+  const [confirmTitle, setConfirmTitle] = React.useState('');
+  const [confirmMessage, setConfirmMessage] = React.useState('');
+  const [confirmAction, setConfirmAction] = React.useState<(() => void) | null>(null);
+  const [confirmIcon, setConfirmIcon] = React.useState('alert-circle-outline');
+  const [confirmColor, setConfirmColor] = React.useState<string | undefined>(undefined);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToastMessage(message);
@@ -326,16 +335,23 @@ export default function ProfileScreen() {
 
   const handlePickAvatar = async () => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permission.status !== 'granted') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
         Alert.alert(t.permissionTitle, t.permissionGallery);
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true });
-      // expo-image-picker v13 returns { canceled, assets }
-      if ((result as any).canceled) return;
-      const asset: any = (result as any).assets ? (result as any).assets[0] : result;
+      const result = await ImagePicker.launchImageLibraryAsync({ 
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+        quality: 0.8, 
+        allowsEditing: true,
+        allowsMultipleSelection: false
+      });
+      
+      // expo-image-picker v17+ returns { canceled, assets }
+      if (result.canceled) return;
+      
+      const asset = result.assets && result.assets[0];
       if (!asset || !asset.uri) return;
 
       // Ask for confirmation before uploading
@@ -352,13 +368,20 @@ export default function ProfileScreen() {
               const fileName = asset.fileName || uri.split('/').pop() || `avatar_${Date.now()}.jpg`;
               const extMatch = /\.([a-zA-Z0-9]+)$/.exec(fileName);
               const ext = extMatch ? extMatch[1] : 'jpg';
-              const mimeType = asset.type ? `${asset.type}/${ext}` : `image/${ext}`;
+              const mimeType = asset.mimeType || (asset.type ? `${asset.type}/${ext}` : `image/${ext}`);
               const form = new FormData();
-              // @ts-ignore
-              form.append('avatar', { uri, name: fileName, type: mimeType });
-                try {
+              // @ts-ignore - FormData in React Native accepts this format
+              form.append('avatar', { 
+                uri, 
+                name: fileName, 
+                type: mimeType 
+              });
+              
+              try {
                 setAvatarUploading(true);
-                const res = await api.post('/api/users/avatar', form as any, { headers: { 'Content-Type': 'multipart/form-data' } });
+                const res = await api.post('/api/users/avatar', form as any, { 
+                  headers: { 'Content-Type': 'multipart/form-data' } 
+                });
                 // server should return the updated avatar URL; fall back to local uri
                 const newAvatar = res?.data?.avatar || res?.data?.url || uri;
                 setCurrentAvatar(newAvatar);
@@ -667,6 +690,11 @@ export default function ProfileScreen() {
 
             <ThemedText style={[styles.userName, { color: tokens.colors.text }]}>
               {profileToShow?.firstName && profileToShow?.lastName ? `${profileToShow.firstName} ${profileToShow.lastName}` : 'Utilizator'}
+              {profileToShow?.isVerified && (
+                <View style={{ marginLeft: 6, position: 'relative', top: 2 }}>
+                  <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                </View>
+              )}
             </ThemedText>
             
             <ThemedText style={[styles.registerDate, { color: tokens.colors.muted }]}>
@@ -896,6 +924,130 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+
+        {/* Verification Documents Section (Only for own profile or if admin) */}
+        {isViewingOwnProfile && user && (
+          <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
+            <View style={styles.dashboardHeader}>
+              <ThemedText style={[styles.dashboardTitle, { color: tokens.colors.text }]}>
+                Verificare Profesională
+              </ThemedText>
+            </View>
+
+            <View style={{ padding: 16 }}>
+              <ThemedText style={[styles.statLabel, { color: tokens.colors.muted, marginBottom: 16 }]}>
+                Încarcă documente care atestă abilitățile tale profesionale pentru a primi un badge de verificare pe profil.
+              </ThemedText>
+              
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: tokens.colors.primary, borderWidth: 0, width: '100%' }]}
+                onPress={() => router.push('/verification-documents')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="document-text" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.editButtonText, { color: '#fff' }]}>
+                  Gestionează Documente
+                </ThemedText>
+              </TouchableOpacity>
+
+              {/* Admin Button */}
+              {user?.isAdmin && (
+                <TouchableOpacity
+                  style={[styles.editButton, { backgroundColor: '#FF9800', borderWidth: 0, width: '100%', marginTop: 12 }]}
+                  onPress={() => router.push('/admin-verifications')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="shield-checkmark" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <ThemedText style={[styles.editButtonText, { color: '#fff' }]}>
+                    Panou Admin Verificări
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Admin Controls - Show when viewing another user's profile */}
+        {!isViewingOwnProfile && user?.isAdmin && publicProfile && (
+          <View style={[styles.dashboardCard, { backgroundColor: isDark ? '#2C1810' : '#FFF3E0', ...containerBorderStyle, borderColor: '#FF9800', borderWidth: 2 }]}>
+            <View style={styles.dashboardHeader}>
+              <Ionicons name="shield-checkmark" size={24} color="#FF9800" style={{ marginRight: 8 }} />
+              <ThemedText style={[styles.dashboardTitle, { color: '#FF9800' }]}>
+                Controale Administrator
+              </ThemedText>
+            </View>
+
+            <View style={{ padding: 16 }}>
+              <ThemedText style={[styles.statLabel, { color: tokens.colors.muted, marginBottom: 16 }]}>
+                Gestionează verificarea și documentele pentru {publicProfile.firstName} {publicProfile.lastName}
+              </ThemedText>
+              
+              {/* Toggle Verification Badge */}
+              <TouchableOpacity
+                style={[styles.editButton, { 
+                  backgroundColor: publicProfile.isVerified ? '#F44336' : '#4CAF50', 
+                  borderWidth: 0, 
+                  width: '100%' 
+                }]}
+                onPress={async () => {
+                  setConfirmTitle(publicProfile.isVerified ? 'Eliminare Badge' : 'Acordare Badge');
+                  setConfirmMessage(`Sigur vrei să ${publicProfile.isVerified ? 'elimini' : 'acorzi'} badge-ul de verificare pentru ${publicProfile.firstName}?`);
+                  setConfirmIcon(publicProfile.isVerified ? 'close-circle-outline' : 'checkmark-circle-outline');
+                  setConfirmColor(publicProfile.isVerified ? '#F44336' : tokens.colors.primary);
+                  setConfirmAction(() => async () => {
+                    try {
+                      const { toggleUserVerification } = await import('../src/services/verificationService');
+                      await toggleUserVerification(String(publicProfile._id), !publicProfile.isVerified);
+                      showToast(
+                        `Badge ${!publicProfile.isVerified ? 'acordat' : 'eliminat'} cu succes.`,
+                        !publicProfile.isVerified ? 'success' : 'info'
+                      );
+                      // Refresh profile
+                      router.replace(`/profile?userId=${publicProfile._id}`);
+                    } catch (error) {
+                      showToast('Nu s-a putut actualiza badge-ul de verificare.', 'error');
+                    } finally {
+                      setConfirmVisible(false);
+                    }
+                  });
+                  setConfirmVisible(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={publicProfile.isVerified ? "close-circle" : "checkmark-circle"} size={18} color="#fff" style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.editButtonText, { color: '#fff' }]}>
+                  {publicProfile.isVerified ? 'Elimină Verificare' : 'Acordă Verificare'}
+                </ThemedText>
+              </TouchableOpacity>
+
+              {/* View User Documents */}
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: '#2196F3', borderWidth: 0, width: '100%', marginTop: 12 }]}
+                onPress={() => {
+                  router.push(`/verification-documents?userId=${publicProfile._id}&adminView=true`);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="documents" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.editButtonText, { color: '#fff' }]}>
+                  Vezi Documente Utilizator
+                </ThemedText>
+              </TouchableOpacity>
+
+              {/* Go to Admin Panel */}
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: '#FF9800', borderWidth: 0, width: '100%', marginTop: 12 }]}
+                onPress={() => router.push('/admin-verifications')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="settings" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.editButtonText, { color: '#fff' }]}>
+                  Panou Admin Complet
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Reviews Dashboard */}
   <View style={[styles.dashboardCard, { backgroundColor: isDark ? tokens.colors.darkModeContainer : tokens.colors.surface, ...containerBorderStyle }]}>
@@ -1273,11 +1425,21 @@ export default function ProfileScreen() {
       </View>
     )}
 
+    <ConfirmDialog
+      visible={confirmVisible}
+      title={confirmTitle}
+      message={confirmMessage}
+      icon={confirmIcon}
+      confirmColor={confirmColor}
+      onConfirm={() => confirmAction?.()}
+      onCancel={() => setConfirmVisible(false)}
+    />
+
     <Toast
       visible={toastVisible}
       message={toastMessage}
       type={toastType}
-      duration={3000}
+      duration={5000}
       onHide={() => setToastVisible(false)}
     />
     </>

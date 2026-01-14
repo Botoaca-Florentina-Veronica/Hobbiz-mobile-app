@@ -1,6 +1,6 @@
 // models/User.js
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema({
   firstName: { type: String },
@@ -20,29 +20,54 @@ const userSchema = new mongoose.Schema({
   // Token version for invalidating all sessions when user logs out from all devices
   tokenVersion: { type: Number, default: 0 },
   // Persistență pentru anunțurile favorite ale utilizatorului (cross-device)
-  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Announcement' }]
-  ,
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "Announcement" }],
   // Reviews left for this user - stored as references to Review documents for clarity and fast lookup
-  reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Review' }],
+  reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
   notificationSettings: {
     email: { type: Boolean, default: true },
     push: { type: Boolean, default: true },
     messages: { type: Boolean, default: true },
     reviews: { type: Boolean, default: true },
     favorites: { type: Boolean, default: true },
-    promotions: { type: Boolean, default: false }
+    promotions: { type: Boolean, default: false },
   },
+
+  // Verification system
+  isAdmin: { type: Boolean, default: false },
+  isVerified: { type: Boolean, default: false },
+  verifiedAt: { type: Date },
+  verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+  // Professional documents (certificates, diplomas, authorizations, etc.)
+  documents: [
+    {
+      url: { type: String, required: true },
+      publicId: { type: String },
+      type: { type: String, required: true }, // e.g., 'certificate', 'diploma', 'authorization'
+      name: { type: String, required: true },
+      description: { type: String },
+      status: {
+        type: String,
+        enum: ["pending", "verified", "rejected"],
+        default: "pending",
+      },
+      uploadedAt: { type: Date, default: Date.now },
+      verifiedAt: { type: Date },
+      verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rejectionReason: { type: String },
+    },
+  ],
 
   // Password reset (email code)
   passwordResetCodeHash: { type: String },
-  passwordResetExpires: { type: Date }
+  passwordResetExpires: { type: Date },
 });
 
 // Hash-uim parola înainte de salvare (only if password is provided)
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password') || !this.password) return next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);

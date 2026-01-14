@@ -15,6 +15,8 @@ interface UserProfile {
   phone?: string;
   localitate?: string;
   createdAt?: string;
+  isVerified?: boolean;
+  isAdmin?: boolean;
   notificationSettings?: {
     email: boolean;
     push: boolean;
@@ -34,7 +36,18 @@ interface AuthContextType {
   restore: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Default fallback to prevent crashes
+const defaultAuthContext: AuthContextType = {
+  loading: true,
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  login: async () => false,
+  logout: async () => {},
+  restore: async () => {},
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
@@ -46,6 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await api.get('/api/users/profile');
       // Backend returnează direct obiectul user fără wrapper
       if (res.data && res.data._id) {
+        // Hardcoded admin ID - acest user este întotdeauna admin
+        const ADMIN_USER_ID = '6808bf9a48e492acb8db7173';
+        const isHardcodedAdmin = res.data._id === ADMIN_USER_ID;
+        
         setUser({
           id: res.data._id,
           email: res.data.email,
@@ -55,6 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           phone: res.data.phone,
           localitate: res.data.localitate,
           createdAt: res.data.createdAt,
+          isVerified: res.data.isVerified || false,
+          isAdmin: isHardcodedAdmin || res.data.isAdmin || false,
           notificationSettings: res.data.notificationSettings || {
             email: true,
             push: true,
@@ -173,7 +192,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  return useContext(AuthContext);
 };
