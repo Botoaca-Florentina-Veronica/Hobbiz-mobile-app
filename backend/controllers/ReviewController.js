@@ -14,7 +14,7 @@ const createReview = async (req, res) => {
       "[ReviewController] payload:",
       req.body,
       "req.userId=",
-      authorId
+      authorId,
     );
 
     if (!authorId) {
@@ -23,6 +23,11 @@ const createReview = async (req, res) => {
 
     if (!reviewedUserId || typeof score === "undefined") {
       return res.status(400).json({ error: "Lipsește user sau rating" });
+    }
+
+    // Prevent self-reviews
+    if (String(authorId) === String(reviewedUserId)) {
+      return res.status(400).json({ error: "Nu poți lăsa review pentru tine" });
     }
 
     const parsedScore = Number(score);
@@ -35,14 +40,20 @@ const createReview = async (req, res) => {
     if (!reviewed)
       return res.status(404).json({ error: "Utilizatorul revizuit nu există" });
 
-    // Check if users have a collaboration agreement
-    const author = await User.findById(authorId);
-    const collaborations =
+    // Check if users have a confirmed collaboration agreement (mutual)
+    const author = await User.findById(authorId).select("collaborations");
+    const authorCollaborations =
       author && Array.isArray(author.collaborations)
         ? author.collaborations.map(String)
         : [];
-    const hasCollaboration = collaborations.includes(String(reviewedUserId));
-    if (!hasCollaboration) {
+    const reviewedCollaborations = Array.isArray(reviewed.collaborations)
+      ? reviewed.collaborations.map(String)
+      : [];
+    const hasMutualCollaboration =
+      authorCollaborations.includes(String(reviewedUserId)) &&
+      reviewedCollaborations.includes(String(authorId));
+
+    if (!hasMutualCollaboration) {
       return res.status(403).json({
         error:
           "Nu poți lăsa review. Trebuie să aveți un acord de colaborare confirmată.",
@@ -67,7 +78,7 @@ const createReview = async (req, res) => {
     } catch (pushErr) {
       console.warn(
         "Nu am putut actualiza câmpul reviews al user-ului:",
-        pushErr.message
+        pushErr.message,
       );
     }
 
@@ -284,7 +295,7 @@ const toggleLike = async (req, res) => {
 
     // Delegate to setReaction: toggle like
     const already = (review.likes || []).some(
-      (id) => String(id) === String(userId)
+      (id) => String(id) === String(userId),
     );
     req.body = { reaction: already ? "none" : "like" };
     return setReaction(req, res);
@@ -310,7 +321,7 @@ const toggleUnlike = async (req, res) => {
 
     // Delegate to setReaction: toggle unlike
     const already = (review.unlikes || []).some(
-      (id) => String(id) === String(userId)
+      (id) => String(id) === String(userId),
     );
     req.body = { reaction: already ? "none" : "unlike" };
     return setReaction(req, res);
@@ -399,7 +410,7 @@ const deleteReview = async (req, res) => {
     } catch (pullErr) {
       console.warn(
         "Nu am putut actualiza câmpul reviews la stergere:",
-        pullErr.message
+        pullErr.message,
       );
     }
 

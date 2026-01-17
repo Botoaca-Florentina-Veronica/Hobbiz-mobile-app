@@ -257,7 +257,7 @@ export default function ConversationScreen() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [userId, setUserId] = useState<string | null>(user?.id || null);
   const messagesEndRef = useRef<ScrollView>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -409,6 +409,17 @@ export default function ConversationScreen() {
       const updated = res.data;
       if (updated && updated._id) {
         setMessages((prev) => prev.map((m) => (m._id === updated._id ? { ...m, ...updated } : m)));
+      }
+
+      // If collaboration got accepted by both, backend adds the other user to `collaborations`.
+      // Refresh profile so UI (e.g., reviews gating) updates immediately.
+      try {
+        const { isAccepted } = getCollaborationMessageStatus(updated);
+        if (isAccepted) {
+          await refreshProfile?.();
+        }
+      } catch (_) {
+        // non-blocking
       }
     } catch (err) {
       console.error('Collaboration response error:', err);

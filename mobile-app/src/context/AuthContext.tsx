@@ -17,6 +17,7 @@ interface UserProfile {
   createdAt?: string;
   isVerified?: boolean;
   isAdmin?: boolean;
+  collaborations?: string[];
   notificationSettings?: {
     email: boolean;
     push: boolean;
@@ -34,6 +35,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   restore: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 // Default fallback to prevent crashes
@@ -45,6 +47,7 @@ const defaultAuthContext: AuthContextType = {
   login: async () => false,
   logout: async () => {},
   restore: async () => {},
+  refreshProfile: async () => {},
 };
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
@@ -74,6 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           createdAt: res.data.createdAt,
           isVerified: res.data.isVerified || false,
           isAdmin: isHardcodedAdmin || res.data.isAdmin || false,
+          collaborations: res.data.collaborations || [],
           notificationSettings: res.data.notificationSettings || {
             email: true,
             push: true,
@@ -89,6 +93,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
     }
   }, []);
+
+  const refreshProfile = useCallback(async () => {
+    await fetchProfile();
+  }, [fetchProfile]);
 
   const restore = useCallback(async () => {
     setLoading(true);
@@ -185,7 +193,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ loading, user, token, isAuthenticated: !!user && !!token, login, logout, restore }}>
+    <AuthContext.Provider value={{ loading, user, token, isAuthenticated: !!user && !!token, login, logout, restore, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

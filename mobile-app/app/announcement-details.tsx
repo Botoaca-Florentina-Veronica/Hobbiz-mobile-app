@@ -67,6 +67,9 @@ const TRANSLATIONS = {
     favoriteAdded: 'Adăugat la favorite',
     favoriteRemoved: 'Eliminat din favorite',
     favoriteFailed: 'Nu am putut actualiza favorite. Încearcă din nou.',
+    noCollaborationTitle: 'Colaborare necesară',
+    noCollaborationMessage: 'Poți lăsa o recenzie doar utilizatorilor cu care ai colaborat oficial pe platformă.',
+    understood: 'AM ÎNȚELES',
   },
   en: {
     posted: 'Posted',
@@ -104,19 +107,45 @@ const TRANSLATIONS = {
     favoriteAdded: 'Added to favorites',
     favoriteRemoved: 'Removed from favorites',
     favoriteFailed: 'Could not update favorites. Please try again.',
+    noCollaborationTitle: 'Collaboration Required',
+    noCollaborationMessage: 'You can only leave a review for users you have officially collaborated with on the platform.',
+    understood: 'UNDERSTOOD',
   }
 };
 
 export default function AnnouncementDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { tokens, isDark } = useAppTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user: currentUser, refreshProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
 
   const locale = (Intl && Intl?.DateTimeFormat && (Intl.DateTimeFormat().resolvedOptions().locale || 'ro')) || 'ro';
   const t = TRANSLATIONS[locale === 'en' ? 'en' : 'ro'];
+
+  // English labels for categories keyed by category key from CATEGORY_DEFS
+  const CATEGORY_LABELS_EN: Record<string, string> = {
+    fotografie: 'Photography',
+    prajituri: 'Cakes',
+    muzica: 'Music',
+    reparatii: 'Repairs',
+    dans: 'Dance',
+    curatenie: 'Cleaning',
+    gradinarit: 'Gardening',
+    sport: 'Sports',
+    arta: 'Art',
+    tehnologie: 'Technology',
+    auto: 'Auto',
+    meditatii: 'Tutoring',
+  };
+
+  const getCategoryLabel = (label?: string) => {
+    if (!label) return '';
+    const def = findCategoryByLabel(label);
+    if (!def) return label;
+    return locale === 'en' ? (CATEGORY_LABELS_EN[def.key] || def.label) : def.label;
+  };
 
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,10 +155,10 @@ export default function AnnouncementDetailsScreen() {
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const [fallbackImage, setFallbackImage] = useState<string | null>(null);
   const [favorited, setFavorited] = useState<boolean>(false);
-  const [favoriting, setFavoriting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showPhone, setShowPhone] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [noCollabModalVisible, setNoCollabModalVisible] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
@@ -137,9 +166,6 @@ export default function AnnouncementDetailsScreen() {
   const [sellerRating, setSellerRating] = useState<number | null>(null);
   const [sellerReviewCount, setSellerReviewCount] = useState<number>(0);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState<boolean>(false);
-  // Map loading state for WebView errors/retries
-  const [mapLoadFailed, setMapLoadFailed] = useState<boolean>(false);
-  const [mapReloadKey, setMapReloadKey] = useState<number>(0);
 
   const width = Dimensions.get('window').width;
   const isLarge = width >= 768;
@@ -418,7 +444,7 @@ export default function AnnouncementDetailsScreen() {
 
       <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
         <View style={[styles.categoryBadge, { backgroundColor: isDark ? tokens.colors.elev : tokens.colors.surface }]}>            
-          <ThemedText style={[styles.categoryText, { color: tokens.colors.primary }]}>{findCategoryByLabel(announcement.category)?.label || announcement.category}</ThemedText>
+          <ThemedText style={[styles.categoryText, { color: tokens.colors.primary }]}>{getCategoryLabel(announcement.category)}</ThemedText>
         </View>
       </View>
 
@@ -428,9 +454,6 @@ export default function AnnouncementDetailsScreen() {
         <View style={styles.cardActions}>
           <TouchableOpacity
             onPress={async () => {
-              // prevent double clicks
-              if (favoriting) return;
-
               // Check authentication first
               if (!isAuthenticated) {
                 Alert.alert(t.loginRequired, t.loginToFavorite, [
@@ -440,49 +463,29 @@ export default function AnnouncementDetailsScreen() {
                 return;
               }
 
-              setFavoriting(true);
               try {
                 if (!favorited) {
                   const r = await api.post(`/api/favorites/${id}`);
-                  console.log('[announcement-details] Favorite added:', r?.data);
                   setFavorited(true);
                   if (r?.data?.favoritesCount !== undefined) {
                     setAnnouncement(prev => prev ? { ...prev, favoritesCount: r.data.favoritesCount } : prev);
                   }
                 } else {
                   const r = await api.delete(`/api/favorites/${id}`);
-                  console.log('[announcement-details] Favorite removed:', r?.data);
                   setFavorited(false);
                   if (r?.data?.favoritesCount !== undefined) {
                     setAnnouncement(prev => prev ? { ...prev, favoritesCount: r.data.favoritesCount } : prev);
                   }
                 }
-              } catch (err: any) {
-                console.warn('[announcement-details] Favorite toggle failed', err?.response?.status, err?.response?.data || err?.message || err);
-
-                // If server returned 401, force user to login
-                const status = err?.response?.status;
-                if (status === 401) {
-                  Alert.alert(t.loginRequired, t.loginToFavorite, [
-                    { text: t.cancel, style: 'cancel' },
-                    { text: 'Login', onPress: () => router.push('/login') }
-                  ]);
-                } else {
-                  Alert.alert(t.error, t.favoriteFailed);
-                }
-              } finally {
-                setFavoriting(false);
+              } catch (err) {
+                console.warn('Favorite toggle failed', err);
+                Alert.alert(t.error, t.favoriteFailed);
               }
             }}
-            style={[styles.actionCircle, favoriting ? { opacity: 0.6 } : null]}
+            style={styles.actionCircle}
             accessibilityLabel="Favorite"
-            accessibilityState={{ busy: favoriting, selected: favorited }}
           >
-            {favoriting ? (
-              <ActivityIndicator size="small" color={tokens.colors.primary} />
-            ) : (
-              <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={24} color={favorited ? '#E0245E' : tokens.colors.primary} />
-            )}
+            <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={24} color={favorited ? '#E0245E' : tokens.colors.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -566,7 +569,25 @@ export default function AnnouncementDetailsScreen() {
         <View style={styles.contactTopRow}>
           <ThemedText style={[styles.contactLabel, { color: tokens.colors.muted }]}>{t.contactPerson}</ThemedText>
           <TouchableOpacity
-            onPress={() => {
+            onPress={async () => {
+              if (!isAuthenticated) {
+                Alert.alert(t.loginRequired, t.loginToFavorite, [
+                  { text: t.cancel, style: 'cancel' },
+                  { text: 'Login', onPress: () => router.push('/login') }
+                ]);
+                return;
+              }
+
+              // Ensure collaborations are fresh (e.g., after accepting collaboration in chat)
+              try { await refreshProfile?.(); } catch (_) {}
+
+              // Check collaboration
+              const hasCollaboration = currentUser?.collaborations?.includes(announcement.user?._id || '');
+              if (!hasCollaboration) {
+                setNoCollabModalVisible(true);
+                return;
+              }
+
               setRatingModalVisible(true);
             }}
             style={[styles.evaluateBtn, { backgroundColor: tokens.colors.surface, borderColor: tokens.colors.border }]}
@@ -637,15 +658,9 @@ export default function AnnouncementDetailsScreen() {
               const encoded = encodeURIComponent(announcement.location);
               // Try to read key from Expo constants (extra) or env var
               const key = (Constants?.expoConfig?.extra?.VITE_GOOGLE_MAPS_KEY as string) || (Constants?.manifest?.extra?.VITE_GOOGLE_MAPS_KEY as string) || process.env?.EXPO_PUBLIC_GOOGLE_MAPS_KEY || process.env?.VITE_GOOGLE_MAPS_KEY;
-
-              // Use embed API on web only; native uses maps.google.com embed to avoid referrer/API issues
-              const mapUrl = Platform.OS === 'web'
-                ? (key ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}` : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`)
+              const mapUrl = key
+                ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${encoded}`
                 : `https://maps.google.com/maps?q=${encoded}&z=15&output=embed`;
-
-              if (key && Platform.OS !== 'web') {
-                console.warn('[announcement-details] Google Maps API key is set but will not be used on native WebView to avoid referrer/billing issues.');
-              }
 
               if (Platform.OS === 'web') {
                 // Web: folosește iframe direct
@@ -679,35 +694,14 @@ export default function AnnouncementDetailsScreen() {
                   </html>
                 `;
                 
-                if (mapLoadFailed) {
-                  return (
-                    <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev, padding: 16, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Ionicons name="alert-circle-outline" size={48} color={tokens.colors.placeholder} style={{ marginBottom: 8 }} />
-                      <ThemedText style={{ color: tokens.colors.text, fontSize: 18, textAlign: 'center', marginBottom: 8 }}>Hopa! A apărut o eroare.</ThemedText>
-                      <ThemedText style={{ color: tokens.colors.muted, fontSize: 13, textAlign: 'center' }}>Această pagină nu a încărcat corect Google Maps. Vezi detaliile tehnice în consola JavaScript.</ThemedText>
-                      <View style={{ flexDirection: 'row', marginTop: 12 }}>
-                        <TouchableOpacity onPress={() => { const q = encodeURIComponent(announcement.location); Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`); }} style={{ paddingVertical: 8, paddingHorizontal: 12, marginRight: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.colors.border }}>
-                          <ThemedText style={{ color: tokens.colors.primary }}>Deschide Harta</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setMapLoadFailed(false); setMapReloadKey(k => k + 1); }} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border }}>
-                          <ThemedText style={{ color: tokens.colors.text }}>Reîncearcă</ThemedText>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                }
-
                 return (
                   <View style={styles.mapInnerWrapper}>
                     <WebView
-                      key={`map-${mapReloadKey}`}
                       source={{ html: htmlContent }}
                       style={styles.mapWebview}
                       startInLoadingState
                       javaScriptEnabled
                       domStorageEnabled
-                      onError={() => { console.warn('[announcement-details] Map WebView error'); setMapLoadFailed(true); }}
-                      onHttpError={() => { console.warn('[announcement-details] Map WebView HTTP error'); setMapLoadFailed(true); }}
                       renderLoading={() => (
                         <View style={[styles.locationMapPlaceholder, { backgroundColor: tokens.colors.elev }]}>
                           <ActivityIndicator size="small" color={tokens.colors.primary} />
@@ -780,8 +774,11 @@ export default function AnnouncementDetailsScreen() {
             </View>
 
             <View style={styles.ratingModalActions}>
-              <TouchableOpacity onPress={() => setRatingModalVisible(false)} style={styles.ratingCancelBtn}>
-                <ThemedText style={[styles.ratingCancelText, { color: tokens.colors.primary }]}>{t.cancel}</ThemedText>
+              <TouchableOpacity 
+                onPress={() => setRatingModalVisible(false)} 
+                style={[styles.ratingCancelBtn, { backgroundColor: isDark ? tokens.colors.elev : tokens.colors.bg, borderColor: tokens.colors.border }]}
+              >
+                <ThemedText style={[styles.ratingCancelText, { color: tokens.colors.text }]}>{t.cancel}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
@@ -804,12 +801,39 @@ export default function AnnouncementDetailsScreen() {
                     setSubmittingRating(false);
                   }
                 }}
-                style={styles.ratingSubmitBtn}
+                style={[styles.ratingSubmitBtn, { backgroundColor: tokens.colors.primary }]}
                 activeOpacity={0.9}
               >
                 <ThemedText style={[styles.ratingSubmitText, { color: '#ffffff' }]}>{submittingRating ? t.sending : t.send}</ThemedText>
               </TouchableOpacity>
             </View>
+          </View>
+        </BlurView>
+    )}
+
+    {/* No Collaboration Modal Overlay */}
+    {noCollabModalVisible && (
+        <BlurView 
+          intensity={90} 
+          tint={isDark ? 'dark' : 'light'}
+          experimentalBlurMethod="dimezisBlurView"
+          style={[StyleSheet.absoluteFill, styles.ratingModalOverlay, { zIndex: 1001 }]}
+        >
+          <View style={[styles.statusModalCard, { backgroundColor: isDark ? '#121212' : tokens.colors.surface, borderColor: tokens.colors.border }]}>
+            <View style={[styles.modalIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}> 
+                <Ionicons name="shield-checkmark-outline" size={36} color={tokens.colors.primary} />
+            </View>
+            
+            <ThemedText style={[styles.statusModalTitle, { color: tokens.colors.text }]}>{t.noCollaborationTitle}</ThemedText>
+            <ThemedText style={[styles.statusModalMessage, { color: tokens.colors.muted }]}>{t.noCollaborationMessage}</ThemedText>
+            
+            <TouchableOpacity 
+              onPress={() => setNoCollabModalVisible(false)} 
+              style={[styles.statusModalButton, { backgroundColor: tokens.colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <ThemedText style={styles.statusModalButtonText}>{t.understood}</ThemedText>
+            </TouchableOpacity>
           </View>
         </BlurView>
     )}
@@ -902,15 +926,22 @@ const styles = StyleSheet.create({
   locationText: { fontSize: 14, fontWeight: '600' },
   /* Rating modal */
   ratingModalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
-  ratingModalCard: { width: '100%', maxWidth: 520, borderRadius: 10, padding: 18, borderWidth: 1, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
-  ratingModalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  ratingStarsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  ratingNumeric: { marginLeft: 8, fontWeight: '700' },
-  ratingInputWrapper: { borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 90, marginBottom: 12 },
-  ratingInput: { minHeight: 64, textAlignVertical: 'top', padding: 0, margin: 0 },
-  ratingModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, alignItems: 'center' },
-  ratingCancelBtn: { paddingHorizontal: 12, paddingVertical: 8 },
+  ratingModalCard: { width: '90%', maxWidth: 500, borderRadius: 24, padding: 24, borderWidth: 1, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  ratingModalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 16, textAlign: 'center' },
+  ratingStarsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  ratingNumeric: { marginLeft: 12, fontSize: 18, fontWeight: '800' },
+  ratingInputWrapper: { borderWidth: 1, borderRadius: 16, padding: 12, minHeight: 100, marginBottom: 20 },
+  ratingInput: { minHeight: 80, textAlignVertical: 'top', padding: 0, margin: 0, fontSize: 15 },
+  ratingModalActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, alignItems: 'center' },
+  ratingCancelBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1 },
   ratingCancelText: { fontSize: 15, fontWeight: '700' },
-  ratingSubmitBtn: { backgroundColor: '#f51866', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8 },
+  ratingSubmitBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   ratingSubmitText: { fontSize: 15, fontWeight: '700' },
+  /* Collaboration modal styles */
+  statusModalCard: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 24, borderWidth: 1, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  modalIconContainer: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  statusModalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 12, textAlign: 'center' },
+  statusModalMessage: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 24, paddingHorizontal: 8 },
+  statusModalButton: { width: '100%', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  statusModalButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 });
