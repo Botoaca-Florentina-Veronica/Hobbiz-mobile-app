@@ -95,8 +95,8 @@ export default function NotificationsScreen() {
       // Step 3: Navigate to chat (replace to avoid stack issues)
       router.replace({ 
         pathname: '/conversation', 
-        params: navParams, 
-      } as any);
+        params: navParams 
+      });
 
       // Step 4: Clean up notification asynchronously (don't block navigation)
       setTimeout(async () => {

@@ -106,7 +106,7 @@ const validateEmail = (email) => {
 async function sendPasswordResetEmail(to, code, userName = "Utilizator") {
   if (!process.env.MAILERSEND_API_KEY || !process.env.SENDER_EMAIL) {
     console.error(
-      "[PasswordReset] MailerSend not configured (MAILERSEND_API_KEY or SENDER_EMAIL missing)"
+      "[PasswordReset] MailerSend not configured (MAILERSEND_API_KEY or SENDER_EMAIL missing)",
     );
     throw new Error("Serviciul de email nu este configurat.");
   }
@@ -122,7 +122,7 @@ async function sendPasswordResetEmail(to, code, userName = "Utilizator") {
     .setHtml(
       `<h3>Codul tău de resetare este: <br><strong>${code}</strong></h3>
        <p>Expiră în 15 minute.</p>
-       <p>Dacă nu ai solicitat resetarea parolei, poți ignora acest mesaj.</p>`
+       <p>Dacă nu ai solicitat resetarea parolei, poți ignora acest mesaj.</p>`,
     )
     .setText(`Codul tău de resetare: ${code}. Expiră în 15 minute.`);
 
@@ -156,7 +156,7 @@ async function mergeDuplicateUsersByEmail(normalizedEmail) {
     // Construim set de favorite și păstrăm câmpuri lipsă (firstName/lastName/avatar) dacă primary nu le are
     const favSet = new Set();
     users.forEach((u) =>
-      (u.favorites || []).forEach((f) => favSet.add(f.toString()))
+      (u.favorites || []).forEach((f) => favSet.add(f.toString())),
     );
     primary.favorites = Array.from(favSet);
 
@@ -179,9 +179,7 @@ async function mergeDuplicateUsersByEmail(normalizedEmail) {
     if (toDelete.length) {
       await User.deleteMany({ _id: { $in: toDelete.map((u) => u._id) } });
       console.log(
-        `[MergeFavorites] Eliminat duplicate: ${toDelete
-          .map((u) => u._id)
-          .join(", ")} -> primary ${primary._id}`
+        `[MergeFavorites] Eliminat duplicate: ${toDelete.map((u) => u._id).join(", ")} -> primary ${primary._id}`,
       );
     }
     return primary;
@@ -247,7 +245,7 @@ const register = async (req, res) => {
         tokenVersion: user.tokenVersion || 0,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     res.status(201).json({
@@ -296,7 +294,7 @@ const login = async (req, res) => {
         tokenVersion: user.tokenVersion || 0,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     // Normalizează email-ul în document dacă nu e deja (evită viitoare duplicate)
@@ -346,7 +344,7 @@ const getProfile = async (req, res) => {
       // Populate basic author info if possible
       const UserModel = require("../models/User");
       const authorIds = Array.from(
-        new Set(reviews.map((r) => String(r.author)).filter(Boolean))
+        new Set(reviews.map((r) => String(r.author)).filter(Boolean)),
       );
       let authors = {};
       if (authorIds.length) {
@@ -521,7 +519,7 @@ const requestPasswordReset = async (req, res) => {
     } catch (mailErr) {
       console.error(
         "[PasswordReset] Email send failed:",
-        mailErr?.message || mailErr
+        mailErr?.message || mailErr,
       );
       return res
         .status(500)
@@ -992,6 +990,41 @@ const uploadVerificationDocument = async (req, res) => {
     user.documents.push(newDocument);
     await user.save();
 
+    // Notificare pentru admini că a fost încărcat un document
+    try {
+      const admins = await User.find({ isAdmin: true }).select("_id");
+      const documentTypeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+      for (const admin of admins) {
+        await Notification.create({
+          userId: admin._id,
+          message: `${user.firstName || "Utilizator"} ${user.lastName || ""} a încărcat un ${documentTypeLabel} pentru verificare.`,
+          link: "/admin/verificari",
+          type: "document",
+          fromUserId: userId,
+          actionDescription: `a încărcat un document de verificare (${documentTypeLabel}: ${name})`,
+          relatedDocumentId: newDocument._id,
+        });
+      }
+
+      // Emit Socket.IO event pentru admini
+      const io = req.app.get("io");
+      const activeUsers = req.app.get("activeUsers");
+      if (io && activeUsers) {
+        for (const admin of admins) {
+          const sid = activeUsers.get(String(admin._id));
+          if (sid) {
+            io.to(sid).emit("newNotification", { userId: String(admin._id) });
+          }
+        }
+      }
+    } catch (notifError) {
+      console.error(
+        "Eroare la trimiterea notificării de document la admini:",
+        notifError,
+      );
+    }
+
     res.json({
       message: "Document încărcat cu succes și trimis spre verificare.",
       document: newDocument,
@@ -1031,7 +1064,7 @@ const deleteUserDocument = async (req, res) => {
     }
 
     const documentIndex = user.documents.findIndex(
-      (doc) => doc._id.toString() === documentId
+      (doc) => doc._id.toString() === documentId,
     );
 
     if (documentIndex === -1) {
@@ -1060,7 +1093,7 @@ const deleteUserDocument = async (req, res) => {
           // version is usually the part after 'upload'
           const folderParts = urlParts.slice(
             uploadIndex + 2,
-            urlParts.length - 1
+            urlParts.length - 1,
           );
           publicIdToDelete =
             folderParts.length > 0
@@ -1078,7 +1111,7 @@ const deleteUserDocument = async (req, res) => {
       } catch (cloudinaryError) {
         console.error(
           "Eroare la eliminarea documentului din Cloudinary:",
-          cloudinaryError
+          cloudinaryError,
         );
       }
     }
@@ -1111,7 +1144,7 @@ const getPendingVerifications = async (req, res) => {
         avatar: user.avatar,
         isVerified: user.isVerified,
         pendingDocuments: user.documents.filter(
-          (doc) => doc.status === "pending"
+          (doc) => doc.status === "pending",
         ),
       }))
       .filter((user) => user.pendingDocuments.length > 0);
@@ -1129,7 +1162,7 @@ const getUserDocumentsAdmin = async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(userId).select(
-      "firstName lastName email avatar documents isVerified verifiedAt verifiedBy"
+      "firstName lastName email avatar documents isVerified verifiedAt verifiedBy",
     );
 
     if (!user) {
@@ -1169,6 +1202,7 @@ const verifyDocument = async (req, res) => {
         });
     }
 
+    const admin = await User.findById(adminId).select("firstName lastName");
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "Utilizator negăsit." });
@@ -1178,6 +1212,11 @@ const verifyDocument = async (req, res) => {
     if (!document) {
       return res.status(404).json({ error: "Document negăsit." });
     }
+
+    const documentTypeName =
+      document.type.charAt(0).toUpperCase() + document.type.slice(1);
+    const adminName =
+      `${admin?.firstName || "Admin"} ${admin?.lastName || ""}`.trim();
 
     document.status = status;
     document.verifiedAt = new Date();
@@ -1192,23 +1231,26 @@ const verifyDocument = async (req, res) => {
     // Notificare pentru utilizator despre statusul documentului
     try {
       let notificationMessage = "";
+      let actionDescription = "";
+
       if (status === "verified") {
-        notificationMessage = `Documentul tău "${
-          document.title || "Certificare"
-        }" a fost verificat cu succes.`;
+        notificationMessage = `Documentul tău "${document.name}" (${documentTypeName}) a fost verificat cu succes de ${adminName}.`;
+        actionDescription = `a verificat documentul tău "${document.name}"`;
       } else if (status === "rejected") {
-        notificationMessage = `Documentul tău "${
-          document.title || "Certificare"
-        }" a fost respins. Motiv: ${
-          rejectionReason || "Nu a fost specificat."
-        }`;
+        const reasonText = rejectionReason ? ` Motiv: ${rejectionReason}` : ".";
+        notificationMessage = `Documentul tău "${document.name}" (${documentTypeName}) a fost respins de ${adminName}.${reasonText}`;
+        actionDescription = `a respins documentul tău "${document.name}"`;
       }
 
       if (notificationMessage) {
         await Notification.create({
           userId: user._id,
           message: notificationMessage,
-          link: "/verification-documents",
+          link: "/verificare-documente",
+          type: "verification",
+          fromUserId: adminId,
+          actionDescription: actionDescription,
+          relatedDocumentId: documentId,
         });
 
         // Emit Socket.IO event
@@ -1224,14 +1266,12 @@ const verifyDocument = async (req, res) => {
     } catch (notifError) {
       console.error(
         "Eroare la trimiterea notificării de document:",
-        notifError
+        notifError,
       );
     }
 
     res.json({
-      message: `Document ${
-        status === "verified" ? "verificat" : "respins"
-      } cu succes.`,
+      message: `Document ${status === "verified" ? "verificat" : "respins"} cu succes.`,
       document,
     });
   } catch (error) {
@@ -1253,10 +1293,14 @@ const toggleUserVerification = async (req, res) => {
         .json({ error: "isVerified trebuie să fie boolean." });
     }
 
+    const admin = await User.findById(adminId).select("firstName lastName");
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "Utilizator negăsit." });
     }
+
+    const adminName =
+      `${admin?.firstName || "Admin"} ${admin?.lastName || ""}`.trim();
 
     user.isVerified = isVerified;
 
@@ -1293,7 +1337,7 @@ const toggleUserVerification = async (req, res) => {
             } catch (err) {
               console.error(
                 `Eroare la ștergerea documentului ${idToDelete} din Cloudinary:`,
-                err
+                err,
               );
             }
           }
@@ -1304,17 +1348,19 @@ const toggleUserVerification = async (req, res) => {
 
     await user.save();
 
-    // Trimite notificare utilizatorului dacă a primit badge-ul
+    // Trimite notificare utilizatorului
     if (isVerified) {
       try {
-        const notificationMessage =
-          "Felicitări! Contul tău a fost verificat și ai primit badge-ul de utilizator de încredere.";
+        const notificationMessage = `Felicitări! Contul tău a fost verificat de ${adminName} și ai primit badge-ul de utilizator de încredere.`;
         const link = "/profile";
 
         await Notification.create({
           userId: user._id,
           message: notificationMessage,
           link: link,
+          type: "verification",
+          fromUserId: adminId,
+          actionDescription: `a verificat și aprobat contul tău`,
         });
 
         // Emit Socket.IO event for real-time notification
@@ -1329,15 +1375,13 @@ const toggleUserVerification = async (req, res) => {
       } catch (notifError) {
         console.error(
           "Eroare la trimiterea notificării de verificare:",
-          notifError
+          notifError,
         );
       }
     }
 
     res.json({
-      message: `Utilizator ${
-        isVerified ? "verificat" : "neverificat"
-      } cu succes.`,
+      message: `Utilizator ${isVerified ? "verificat" : "neverificat"} cu succes.`,
       user: {
         _id: user._id,
         isVerified: user.isVerified,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../themed-text';
 import { useAppTheme } from '../../src/context/ThemeContext';
@@ -78,11 +79,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         style={[
           styles.overlay,
           {
-            backgroundColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.25)',
             opacity: fadeAnim,
           },
         ]}
       >
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 40 : 80}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+          experimentalBlurMethod="dimezisBlurView"
+        />
         <TouchableOpacity
           style={styles.overlayTouchable}
           activeOpacity={1}
@@ -178,6 +185,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                       color: isDark ? '#FFFFFF' : '#1A1A1A',
                     },
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
                   {cancelText}
                 </ThemedText>
@@ -194,7 +203,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onPress={onConfirm}
                 activeOpacity={0.8}
               >
-                <ThemedText style={[styles.buttonText, styles.confirmButtonText]}>
+                <ThemedText 
+                  style={[styles.buttonText, styles.confirmButtonText]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {confirmText}
                 </ThemedText>
               </TouchableOpacity>
@@ -267,7 +280,7 @@ const styles = StyleSheet.create({
   },
   confirmButton: {},
   buttonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Poppins-SemiBold',
   },
