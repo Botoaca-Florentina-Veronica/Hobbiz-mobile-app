@@ -4,26 +4,20 @@ Hobbiz este o aplicație mobilă cross-platform (Android/iOS) cu platformă dedi
 
 # Demo
 
-![alt text](image.png)
+![alt text](mobile-app\assets\images\image.png)
 
-# Features
+---
 
--Autentificare (email + Google OAuth) -in viitor si facebook + apple
--Creare, editare, ștergere anunțuri (CRUD)
--Chat în timp real cu Socket.IO
--Notificări push (Expo Notifications + FCM-firebase)
--Schimbarea parolei folosind mailerSend(cod trimis pe email-ul utilizatorului)
--Sistem de rating/recenzii
--Suport temă întunecată/luminoasă
--Sincronizare web + mobil (același backend)
--Reactivare/dezactivare anunț (arhivare temporară fără ștergere)
+## 📱 Aplicația mobilă 
 
-# Tech Stack
+Hobbiz oferă o experiență mobilă nativă completă dezvoltată cu **Expo** și **React Native**, optimizată pentru iOS și Android. Aplicația permite utilizatorilor să:
 
--Frontend: Expo (React Native), TypeScript, Expo Router, Axios, socket.io-client, expo-notifications, expo-secure-store.
--Backend: Node.js, Express, MongoDB (Mongoose), Socket.IO, Cloudinary, JWT, Passport Google OAuth, Firebase (FMC).
--Modele & Securitate: User, Announcement, Message, Notification, Review. Securitate: Token-uri JWT în SecureStore, validare/sanitizare input, CORS whitelist, limită upload 5MB/imagine.
-
-# Instalare & rulare locală
-
-## -Clone this repo
+- **Exploreze anunțuri** - Poți naviga prin categorii și descoperi hobby-uri și servicii locale pe care ai vrea să le soliciți
+- **Încarce certificări/atestate/diplome** - Utilizatorii pot trimte către adminii platformei orice fel de documente demonstrative în vederea obținerii unui
+badge de verificare pentru construirea încrederii în rândul clienților(direct în aplicație)
+- **Schimbe limba aplicației** - Deocamdată avem implementată doar limba română și engleză(urmează să mai adaugăm pe viitor)
+- **Colaboreze** - Printr-un buton dedicat, aceștia pot decide dacă vor să facă negocieri între ei, și doar apoi pot să își lase review-uri unul altuia
+- **Publice anunțuri** - Creează și editează anunțuri direct de pe telefon
+- **Comunice în timp real** - Chat privat cu notificări și typing indicators
+- **Gestioneze contul** - Profil personalizat cu avatar, setări și autentificare Google OAuth(în viitor +Facebook, Apple)
+- **Gestioneze favorite** - Salvează și accesează rapid anunțurile preferate
