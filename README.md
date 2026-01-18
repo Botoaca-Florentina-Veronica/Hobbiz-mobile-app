@@ -4,7 +4,7 @@ Hobbiz este o aplicație mobilă cross-platform (Android/iOS) cu platformă dedi
 
 # Demo
 
-![alt text](mobile-app\assets\images\image.png)
+![alt text](image.png)
 
 ---
 
